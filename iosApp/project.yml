@@ -1,0 +1,39 @@
+name: iosApp
+options:
+  bundleIdPrefix: com.speedash
+targets:
+  iosApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources: [iosApp]
+    settings:
+      INFOPLIST_FILE: iosApp/Info.plist
+      PRODUCT_BUNDLE_IDENTIFIER: com.speedash.app
+      CODE_SIGN_STYLE: Automatic
+      FRAMEWORK_SEARCH_PATHS:
+        - "$(SRCROOT)/../shared/build/bin/iosSimulatorArm64/debugFramework"
+      "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]":
+        - "$(SRCROOT)/../shared/build/bin/iosArm64/debugFramework"
+      "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]":
+        - "$(SRCROOT)/../shared/build/bin/iosSimulatorArm64/debugFramework"
+      OTHER_LDFLAGS:
+        - "-framework"
+        - "SpeedashShared"
+    preBuildScripts:
+      - name: Build Kotlin Framework
+        script: |
+          cd "$SRCROOT/.."
+          if [ "$CONFIGURATION" = "Debug" ]; then
+              if [ "$PLATFORM_NAME" = "iphonesimulator" ]; then
+                  ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
+              else
+                  ./gradlew :shared:linkDebugFrameworkIosArm64
+              fi
+          else
+              if [ "$PLATFORM_NAME" = "iphonesimulator" ]; then
+                  ./gradlew :shared:linkReleaseFrameworkIosSimulatorArm64
+              else
+                  ./gradlew :shared:linkReleaseFrameworkIosArm64
+              fi
+          fi

@@ -32,6 +32,23 @@ interface AppStrings {
     val reset: String
     val startTelemetry: String
     val stopTelemetry: String
+    val recordTrip: String
+    val pauseTrip: String
+    val resumeTrip: String
+    val stopTrip: String
+
+    // Trip Dialog & History
+    val tripHistoryTitle: String
+    val tripHistorySubtitle: String
+    val tripNameDialogTitle: String
+    val tripNameDialogMessage: String
+    val saveTrip: String
+    val startLocation: String
+    val endLocation: String
+    val noTripsRecorded: String
+    val durationLabel: String
+    val distanceLabel: String
+    val avgSpeedLabel: String
 
     // Settings Screen Navigation & Headers
     val settingsTitle: String
@@ -136,8 +153,24 @@ internal object EnglishStrings : AppStrings {
     override val tripDistance: String = "TRIP DIST"
 
     override val reset: String = "RESET"
-    override val startTelemetry: String = "START TELEMETRY"
-    override val stopTelemetry: String = "STOP TELEMETRY"
+    override val startTelemetry: String = "START DASH"
+    override val stopTelemetry: String = "STOP DASH"
+    override val recordTrip: String = "RECORD TRIP"
+    override val pauseTrip: String = "PAUSE"
+    override val resumeTrip: String = "RESUME"
+    override val stopTrip: String = "STOP & SAVE"
+
+    override val tripHistoryTitle: String = "TRIP HISTORY"
+    override val tripHistorySubtitle: String = "View recorded trips and inspect start/end locations on maps"
+    override val tripNameDialogTitle: String = "Name Your Trip"
+    override val tripNameDialogMessage: String = "Enter a name for this trip recording session"
+    override val saveTrip: String = "START RECORDING"
+    override val startLocation: String = "Start Location"
+    override val endLocation: String = "End Location"
+    override val noTripsRecorded: String = "No trips recorded yet"
+    override val durationLabel: String = "Duration"
+    override val distanceLabel: String = "Distance"
+    override val avgSpeedLabel: String = "Avg Speed"
 
     override val settingsTitle: String = "SETTINGS"
     override val settingsSubtitle: String = "Cockpit Preferences & Diagnostics"
@@ -245,6 +278,22 @@ internal object IndonesianStrings : AppStrings {
     override val reset: String = "RESET"
     override val startTelemetry: String = "MULAI PELACAKAN"
     override val stopTelemetry: String = "HENTIKAN PELACAKAN"
+    override val recordTrip: String = "REKAM PERJALANAN"
+    override val pauseTrip: String = "JEDA"
+    override val resumeTrip: String = "LANJUTKAN"
+    override val stopTrip: String = "SELESAI & SIMPAN"
+
+    override val tripHistoryTitle: String = "RIWAYAT PERJALANAN"
+    override val tripHistorySubtitle: String = "Lihat perjalanan yang direkam dan periksa lokasi di peta"
+    override val tripNameDialogTitle: String = "Beri Nama Perjalanan"
+    override val tripNameDialogMessage: String = "Masukkan nama untuk sesi perekaman perjalanan ini"
+    override val saveTrip: String = "MULAI REKAM"
+    override val startLocation: String = "Lokasi Awal"
+    override val endLocation: String = "Lokasi Akhir"
+    override val noTripsRecorded: String = "Belum ada perjalanan yang direkam"
+    override val durationLabel: String = "Durasi"
+    override val distanceLabel: String = "Jarak"
+    override val avgSpeedLabel: String = "Kecepatan Rata-rata"
 
     override val settingsTitle: String = "PENGATURAN"
     override val settingsSubtitle: String = "Preferensi Kokpit & Diagnostik Perangkat"

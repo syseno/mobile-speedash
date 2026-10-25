@@ -22,12 +22,16 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 
 	<!-- Location permission prompts (required — the app crashes on authorization request without them). -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Speedash uses your precise location to measure your real-time speed and heading.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Speedash uses your location to keep measuring speed and distance while the app is in the background.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Speedash uses motion data to track your speed, acceleration, and movement during travel.</string>
 
 	<!-- Ensure devices have GPS hardware. -->
 	<key>UIRequiredDeviceCapabilities</key>

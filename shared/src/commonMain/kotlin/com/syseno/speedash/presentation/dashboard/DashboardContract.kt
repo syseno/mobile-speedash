@@ -2,6 +2,7 @@ package com.syseno.speedash.presentation.dashboard
 
 import androidx.compose.runtime.Immutable
 import com.syseno.speedash.domain.model.AppLanguage
+import com.syseno.speedash.domain.model.TripRecord
 import com.syseno.speedash.domain.model.VehicleData
 import kotlin.math.roundToInt
 
@@ -25,6 +26,15 @@ import kotlin.math.roundToInt
  * @property movingTimeMillis Time spent above the noise gate during the current trip, in milliseconds.
  * @property hasRequestedPermission Whether the app already asked the user for location permission
  *   in this session (prevents permission-request loops).
+ * @property tripRecordingStatus Current lifecycle state of trip recording.
+ * @property currentTripName Name of the active trip being recorded.
+ * @property currentTripStartTime Epoch timestamp when the current trip recording started.
+ * @property currentTripElapsedMillis Accumulated active time of the current trip in milliseconds.
+ * @property currentTripDistanceMeters Accumulated distance of the current trip in meters.
+ * @property currentTripStartLat Starting latitude of the current trip.
+ * @property currentTripStartLon Starting longitude of the current trip.
+ * @property showTripNameDialog Whether the trip naming dialog is currently visible.
+ * @property trips List of all saved trip records.
  */
 @Immutable
 data class DashboardUiState(
@@ -42,7 +52,16 @@ data class DashboardUiState(
     val compassHeading: Float? = null,
     val hasBarometerSensor: Boolean = false,
     val altitudeMeters: Float? = null,
-    val keepScreenOn: Boolean = true
+    val keepScreenOn: Boolean = true,
+    val tripRecordingStatus: TripRecordingStatus = TripRecordingStatus.Idle,
+    val currentTripName: String = "",
+    val currentTripStartTime: Long = 0L,
+    val currentTripElapsedMillis: Long = 0L,
+    val currentTripDistanceMeters: Double = 0.0,
+    val currentTripStartLat: Double = 0.0,
+    val currentTripStartLon: Double = 0.0,
+    val showTripNameDialog: Boolean = false,
+    val trips: List<TripRecord> = emptyList()
 ) {
     /** True while location updates are requested (acquiring a fix or actively receiving). */
     val isTracking: Boolean
@@ -51,6 +70,29 @@ data class DashboardUiState(
     /** True once at least one processed fix has been received in the current session. */
     val hasGpsFix: Boolean
         get() = trackingStatus == TrackingStatus.Active
+
+    /** True while a trip is actively recording or paused. */
+    val isTripRecording: Boolean
+        get() = tripRecordingStatus != TripRecordingStatus.Idle
+
+    /** True while trip recording is actively accumulating distance/time. */
+    val isTripRecordingActive: Boolean
+        get() = tripRecordingStatus == TripRecordingStatus.Recording
+
+    /** Trip recording duration in seconds. */
+    val tripRecordingDurationSeconds: Long
+        get() = currentTripElapsedMillis / MILLIS_PER_SECOND.toLong()
+
+    /** Trip recording distance in kilometers. */
+    val tripRecordingDistanceKm: Double
+        get() = currentTripDistanceMeters / 1_000.0
+
+    /** Average speed of the recorded trip in km/h. */
+    val tripRecordingAvgSpeedKmh: Double
+        get() {
+            val hours = currentTripElapsedMillis / (MILLIS_PER_SECOND * 3600.0)
+            return if (hours > 0.0) tripRecordingDistanceKm / hours else 0.0
+        }
 
     /** EMA-smoothed, noise-gated speed in km/h. Drives the analog gauge needle (0–240 km/h scale). */
     val smoothedSpeedKmh: Double
@@ -137,6 +179,16 @@ sealed interface TrackingStatus {
 }
 
 /**
+ * Lifecycle of trip recording.
+ */
+@Immutable
+sealed interface TripRecordingStatus {
+    data object Idle : TripRecordingStatus
+    data object Recording : TripRecordingStatus
+    data object Paused : TripRecordingStatus
+}
+
+/**
  * Supported vehicle types for telemetry tracking.
  *
  * @property displayName Human-readable name.
@@ -151,6 +203,15 @@ enum class VehicleType(
     TRAIN("Train", SpeedUnit.KMH),
     SHIP("Ship", SpeedUnit.KNOTS),
     PLANE("Plane", SpeedUnit.KNOTS);
+
+    val iconSymbol: String
+        get() = when (this) {
+            CAR -> "🚗"
+            MOTORCYCLE -> "🏍️"
+            TRAIN -> "🚆"
+            SHIP -> "🚢"
+            PLANE -> "✈️"
+        }
 
     fun next(): VehicleType = entries[(ordinal + 1) % entries.size]
 }
@@ -232,6 +293,30 @@ sealed interface DashboardUiIntent {
 
     /** Toggle wake lock / keep screen awake while the app is active. */
     data object ToggleKeepScreenOn : DashboardUiIntent
+
+    /** Show the trip naming dialog when starting trip recording. */
+    data object ShowTripNameDialog : DashboardUiIntent
+
+    /** Dismiss the trip naming dialog. */
+    data object DismissTripNameDialog : DashboardUiIntent
+
+    /** Start recording a trip with the given name. */
+    data class StartTripRecording(val name: String) : DashboardUiIntent
+
+    /** Pause the current trip recording. */
+    data object PauseTripRecording : DashboardUiIntent
+
+    /** Resume the paused trip recording. */
+    data object ResumeTripRecording : DashboardUiIntent
+
+    /** Stop and save the current trip recording. */
+    data object StopTripRecording : DashboardUiIntent
+
+    /** Delete a recorded trip by ID. */
+    data class DeleteTrip(val id: String) : DashboardUiIntent
+
+    /** Open native map at coordinates with label. */
+    data class OpenMap(val lat: Double, val lon: Double, val label: String) : DashboardUiIntent
 }
 
 // =================================================================================================

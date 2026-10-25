@@ -104,10 +104,10 @@ class AppStringsTest {
         val en = AppStrings.forLanguage(AppLanguage.ENGLISH)
         val id = AppStrings.forLanguage(AppLanguage.INDONESIAN)
 
-        assertEquals("START TELEMETRY", en.startTelemetry)
+        assertEquals("START DASH", en.startTelemetry)
         assertEquals("MULAI PELACAKAN", id.startTelemetry)
 
-        assertEquals("STOP TELEMETRY", en.stopTelemetry)
+        assertEquals("STOP DASH", en.stopTelemetry)
         assertEquals("HENTIKAN PELACAKAN", id.stopTelemetry)
 
         assertEquals("RESET", en.reset)

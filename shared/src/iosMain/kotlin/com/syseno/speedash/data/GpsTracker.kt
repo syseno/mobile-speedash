@@ -99,7 +99,10 @@ actual class GpsTracker {
 
         awaitClose {
             manager.stopUpdatingLocation()
-            manager.delegate = null
+            // Referencing `delegate` here is what actually keeps it alive (see comment above).
+            if (manager.delegate === delegate) {
+                manager.delegate = null
+            }
         }
     }
         .buffer(capacity = BUFFER_CAPACITY, onBufferOverflow = BufferOverflow.DROP_OLDEST)

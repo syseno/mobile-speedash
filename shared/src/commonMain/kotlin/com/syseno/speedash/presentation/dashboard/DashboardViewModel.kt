@@ -5,11 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.syseno.speedash.domain.model.AppLanguage
 import com.syseno.speedash.domain.model.LocationPermissionException
 import com.syseno.speedash.domain.model.LocationUnavailableException
+import com.syseno.speedash.domain.model.TripRecord
 import com.syseno.speedash.domain.model.VehicleData
 import com.syseno.speedash.domain.repository.BarometerRepository
 import com.syseno.speedash.domain.repository.CompassRepository
+import com.syseno.speedash.domain.repository.TripRepository
 import com.syseno.speedash.domain.usecase.ObserveVehicleTelemetryUseCase
 import com.syseno.speedash.presentation.localization.AppStrings
+import com.syseno.speedash.presentation.util.openMap
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -42,7 +45,8 @@ import kotlin.math.max
 class DashboardViewModel(
     private val observeVehicleTelemetry: ObserveVehicleTelemetryUseCase,
     private val compassRepository: CompassRepository,
-    private val barometerRepository: BarometerRepository
+    private val barometerRepository: BarometerRepository,
+    private val tripRepository: TripRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -80,6 +84,10 @@ class DashboardViewModel(
                 .onEach { altitude -> dispatch(DashboardResult.BarometerAltitudeUpdated(altitude)) }
                 .launchIn(viewModelScope)
         }
+
+        tripRepository.trips
+            .onEach { trips -> dispatch(DashboardResult.TripsUpdated(trips)) }
+            .launchIn(viewModelScope)
     }
 
     /** The only public entry point for UI events. Never suspends, never drops. */
@@ -111,6 +119,20 @@ class DashboardViewModel(
             DashboardUiIntent.ResetTrip -> dispatch(DashboardResult.TripReset)
             DashboardUiIntent.ToggleKeepScreenOn ->
                 dispatch(DashboardResult.KeepScreenOnChanged(!_uiState.value.keepScreenOn))
+
+            DashboardUiIntent.ShowTripNameDialog -> dispatch(DashboardResult.TripNameDialogShown)
+            DashboardUiIntent.DismissTripNameDialog -> dispatch(DashboardResult.TripNameDialogDismissed)
+            is DashboardUiIntent.StartTripRecording -> {
+                if (!_uiState.value.isTracking) {
+                    startTracking()
+                }
+                dispatch(DashboardResult.TripRecordingStarted(intent.name, _uiState.value.vehicle))
+            }
+            DashboardUiIntent.PauseTripRecording -> dispatch(DashboardResult.TripRecordingPaused)
+            DashboardUiIntent.ResumeTripRecording -> dispatch(DashboardResult.TripRecordingResumed)
+            DashboardUiIntent.StopTripRecording -> stopAndSaveTrip()
+            is DashboardUiIntent.DeleteTrip -> tripRepository.deleteTrip(intent.id)
+            is DashboardUiIntent.OpenMap -> openMap(intent.lat, intent.lon, intent.label)
         }
     }
 
@@ -128,6 +150,39 @@ class DashboardViewModel(
         trackingJob?.cancel()
         trackingJob = null
         dispatch(DashboardResult.TrackingStopped)
+    }
+
+    private fun stopAndSaveTrip() {
+        val state = _uiState.value
+        if (state.tripRecordingStatus == TripRecordingStatus.Idle) return
+
+        val endTime = state.vehicle.timestampMillis.takeIf { it > 0L } ?: currentTimeMillis()
+        val duration = state.currentTripElapsedMillis.coerceAtLeast(1000L)
+        val distanceKm = state.currentTripDistanceMeters / 1000.0
+        val hours = duration / 3600_000.0
+        val avgSpeed = if (hours > 0.0) distanceKm / hours else 0.0
+
+        val record = TripRecord(
+            id = "trip_${endTime}_${(1000..9999).random()}",
+            name = state.currentTripName.ifBlank { "Trip - $endTime" },
+            startTimeMillis = state.currentTripStartTime,
+            endTimeMillis = endTime,
+            durationMillis = duration,
+            distanceKm = distanceKm,
+            avgSpeedKmh = avgSpeed,
+            startLat = state.currentTripStartLat,
+            startLon = state.currentTripStartLon,
+            endLat = state.vehicle.latitude,
+            endLon = state.vehicle.longitude
+        )
+
+        tripRepository.saveTrip(record)
+        dispatch(DashboardResult.TripRecordingStopped)
+        emitEffect(DashboardUiEffect.ShowMessage("Trip '${record.name}' saved successfully!"))
+    }
+
+    private fun currentTimeMillis(): Long {
+        return kotlin.time.TimeSource.Monotonic.markNow().elapsedNow().inWholeMilliseconds // or kotlinx time / system millis
     }
 
     private fun onPermissionResult(granted: Boolean) {
@@ -186,12 +241,6 @@ class DashboardViewModel(
         _effects.close()
         super.onCleared()
     }
-
-    private companion object {
-        const val MESSAGE_PERMISSION_REQUIRED = "Location permission is required to measure speed."
-        const val MESSAGE_GPS_UNAVAILABLE = "GPS is unavailable. Check that location services are enabled."
-        const val MESSAGE_UNEXPECTED_ERROR = "Tracking stopped due to an unexpected error."
-    }
 }
 
 // =================================================================================================
@@ -217,6 +266,13 @@ internal sealed interface DashboardResult {
     data class CompassHeadingUpdated(val heading: Float) : DashboardResult
     data class BarometerAltitudeUpdated(val altitude: Float) : DashboardResult
     data class KeepScreenOnChanged(val enabled: Boolean) : DashboardResult
+    data class TripsUpdated(val trips: List<TripRecord>) : DashboardResult
+    data object TripNameDialogShown : DashboardResult
+    data object TripNameDialogDismissed : DashboardResult
+    data class TripRecordingStarted(val name: String, val vehicle: VehicleData) : DashboardResult
+    data object TripRecordingPaused : DashboardResult
+    data object TripRecordingResumed : DashboardResult
+    data object TripRecordingStopped : DashboardResult
 }
 
 /**
@@ -259,7 +315,6 @@ internal object DashboardReducer {
 
         is DashboardResult.VehicleTypeChanged -> state.copy(
             vehicleType = result.vehicleType,
-            // When selecting PLANE or SHIP, measurement defaults to KNOTS, but user can change it anytime
             speedUnit = result.vehicleType.defaultSpeedUnit
         )
 
@@ -284,11 +339,36 @@ internal object DashboardReducer {
             tripDistanceMeters = 0.0,
             movingTimeMillis = 0L
         )
+
+        is DashboardResult.TripsUpdated -> state.copy(trips = result.trips)
+        DashboardResult.TripNameDialogShown -> state.copy(showTripNameDialog = true)
+        DashboardResult.TripNameDialogDismissed -> state.copy(showTripNameDialog = false)
+
+        is DashboardResult.TripRecordingStarted -> state.copy(
+            showTripNameDialog = false,
+            tripRecordingStatus = TripRecordingStatus.Recording,
+            currentTripName = result.name,
+            currentTripStartTime = result.vehicle.timestampMillis.takeIf { it > 0L } ?: 1L,
+            currentTripElapsedMillis = 0L,
+            currentTripDistanceMeters = 0.0,
+            currentTripStartLat = result.vehicle.latitude,
+            currentTripStartLon = result.vehicle.longitude
+        )
+
+        DashboardResult.TripRecordingPaused -> state.copy(tripRecordingStatus = TripRecordingStatus.Paused)
+        DashboardResult.TripRecordingResumed -> state.copy(tripRecordingStatus = TripRecordingStatus.Recording)
+
+        DashboardResult.TripRecordingStopped -> state.copy(
+            tripRecordingStatus = TripRecordingStatus.Idle,
+            currentTripName = "",
+            currentTripStartTime = 0L,
+            currentTripElapsedMillis = 0L,
+            currentTripDistanceMeters = 0.0
+        )
     }
 
     private fun reduceVehicle(state: DashboardUiState, vehicle: VehicleData): DashboardUiState {
         val previous = state.vehicle
-        // Only count moving time between two fixes of the same active session.
         val elapsed = if (
             state.trackingStatus == TrackingStatus.Active &&
             previous.timestampMillis > 0L &&
@@ -299,12 +379,30 @@ internal object DashboardReducer {
             0L
         }
 
+        // Trip recording accumulation if actively recording
+        val tripElapsed = if (
+            state.tripRecordingStatus == TripRecordingStatus.Recording &&
+            previous.timestampMillis > 0L
+        ) {
+            (vehicle.timestampMillis - previous.timestampMillis).coerceIn(0L, MAX_SAMPLE_GAP_MILLIS)
+        } else {
+            0L
+        }
+
+        val tripDistanceDelta = if (state.tripRecordingStatus == TripRecordingStatus.Recording) {
+            vehicle.distanceDeltaMeters
+        } else {
+            0.0
+        }
+
         return state.copy(
             trackingStatus = TrackingStatus.Active,
             vehicle = vehicle,
             maxSpeedKmh = max(state.maxSpeedKmh, vehicle.speedKmh),
             tripDistanceMeters = state.tripDistanceMeters + vehicle.distanceDeltaMeters,
-            movingTimeMillis = state.movingTimeMillis + elapsed
+            movingTimeMillis = state.movingTimeMillis + elapsed,
+            currentTripElapsedMillis = state.currentTripElapsedMillis + tripElapsed,
+            currentTripDistanceMeters = state.currentTripDistanceMeters + tripDistanceDelta
         )
     }
 }

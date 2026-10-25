@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,11 +26,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -54,10 +57,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -178,6 +179,69 @@ internal object DashboardTheme {
 }
 
 // =================================================================================================
+// SPLASH SCREEN
+// =================================================================================================
+
+/**
+ * Branded Splash Screen shown upon entering the app on both iOS and Android.
+ */
+@Composable
+fun SpeedashSplashScreen(onTimeout: () -> Unit) {
+    var startAnimation by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        startAnimation = true
+        kotlinx.coroutines.delay(1500)
+        onTimeout()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DashboardTheme.BackgroundDark),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape)
+                    .background(DashboardTheme.CyanNeon.copy(alpha = 0.15f))
+                    .border(2.dp, DashboardTheme.CyanNeon, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "S",
+                    color = DashboardTheme.CyanNeon,
+                    fontSize = 48.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "SPEEDASH",
+                color = Color.White,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 4.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "PRECISION GPS TELEMETRY",
+                color = DashboardTheme.CyanNeon,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 2.sp
+            )
+        }
+    }
+}
+
+// =================================================================================================
 // ROOT COMPOSABLE SCREEN (Koin ViewModel Integration + Side Effect Handling)
 // =================================================================================================
 
@@ -192,6 +256,14 @@ fun DashboardScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showSplash by remember { mutableStateOf(true) }
+
+    if (showSplash) {
+        DashboardThemeWrapper(themeMode = state.themeMode) {
+            SpeedashSplashScreen(onTimeout = { showSplash = false })
+        }
+        return
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
@@ -231,6 +303,14 @@ fun DashboardContent(
 
         val strings = AppStrings.forLanguage(state.language)
 
+        // Trip Name Input Dialog
+        TripNameDialog(
+            isOpen = state.showTripNameDialog,
+            strings = strings,
+            onDismiss = { onIntent(DashboardUiIntent.DismissTripNameDialog) },
+            onConfirm = { name -> onIntent(DashboardUiIntent.StartTripRecording(name)) }
+        )
+
         AnimatedContent(
             targetState = isSettingsOpen,
             label = "DashboardScreenTransition"
@@ -252,82 +332,30 @@ fun DashboardContent(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues)
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Header: Top Status Pill & Precision GPS Indicator & Large Heading Readout & Settings
-                        val speedAlertLevel = getSpeedAlertLevel(state.smoothedSpeedKmh, state.vehicleType)
+                        // 1. Top Status Header & GPS Accuracy / Vehicle HUD
+                        DashboardHeader(state = state, strings = strings)
 
-                        TopStatusHeader(
-                            trackingStatus = state.trackingStatus,
-                            accuracyMeters = state.gpsAccuracyMeters,
-                            hasFix = state.hasGpsFix,
-                            headingDegrees = state.headingDegrees,
-                            cardinalDirection = strings.cardinalDirection(state.headingDegree),
-                            hasCompassSensor = state.hasCompassSensor,
-                            strings = strings,
-                            speedAlertLevel = speedAlertLevel,
-                            vehicleType = state.vehicleType,
-                            onSettingsClick = { isSettingsOpen = true }
-                        )
+                        // 1.5. Big Compass HUD below header (centered horizontally)
+                        CompassHudHeader(state = state)
 
-                        // Main Canvas: Gauge Arc (0-240) + Dynamic Needle + HUD + Barometer Altitude
-                        Column(
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // 2. Center Analog Gauge with Digital Speedometer
+                        Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                SpeedashInstrumentCluster(
-                                    state = state,
-                                    onUnitClick = { onIntent(DashboardUiIntent.CycleSpeedUnit) },
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .aspectRatio(1f)
-                                )
-                            }
-
-                            // Barometer Altitude Readout (mdpl / m ASL) displayed underneath the speed dashboard
-                            if (state.hasBarometerSensor && state.displayAltitudeMeters != null) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(DashboardTheme.SurfaceDark)
-                                        .border(1.dp, DashboardTheme.SurfaceBorder, RoundedCornerShape(12.dp))
-                                        .padding(horizontal = 12.dp, vertical = 5.dp)
-                                ) {
-                                    Text(
-                                        text = "⛰️",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = strings.altitudeFormat(state.displayAltitudeMeters!!),
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Black,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = DashboardTheme.CyanNeon,
-                                            letterSpacing = 1.sp
-                                        )
-                                    )
-                                }
-                            }
+                            AnalogSpeedometerGauge(state = state, strings = strings, onIntent = onIntent)
                         }
 
-                        // Bottom Telemetry Cards & Primary Actions
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 3. Bottom Trip Telemetry Cards & Action Controls (Start/Stop, Reset, Settings)
                         BottomTelemetryControls(
                             state = state,
                             strings = strings,
@@ -342,717 +370,382 @@ fun DashboardContent(
 }
 
 // =================================================================================================
-// SPEED ALERT UTILITIES
-// =================================================================================================
-
-internal enum class SpeedAlertLevel {
-    NORMAL,
-    WARNING,
-    DANGER
-}
-
-internal fun getSpeedAlertLevel(
-    speedKmh: Double,
-    vehicleType: VehicleType
-): SpeedAlertLevel {
-    if (vehicleType != VehicleType.CAR && vehicleType != VehicleType.MOTORCYCLE) {
-        return SpeedAlertLevel.NORMAL
-    }
-    return when {
-        speedKmh >= 100.0 -> SpeedAlertLevel.DANGER
-        speedKmh >= 70.0 -> SpeedAlertLevel.WARNING
-        else -> SpeedAlertLevel.NORMAL
-    }
-}
-
-// =================================================================================================
-// INSTRUMENT CLUSTER (Canvas Gauge, Needle & Center Digital HUD)
+// TRIP NAME DIALOG
 // =================================================================================================
 
 @Composable
-private fun SpeedashInstrumentCluster(
-    state: DashboardUiState,
-    onUnitClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val textMeasurer = rememberTextMeasurer()
-
-    // 1. Dynamic Animated Needle bound to smoothedSpeedKmh (0 to 240 scale)
-    val animatedSpeed by animateFloatAsState(
-        targetValue = state.smoothedSpeedKmh.toFloat().coerceIn(0f, 240f),
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "NeedleSpeedAnimation"
-    )
-
-    val alertLevel = getSpeedAlertLevel(state.smoothedSpeedKmh, state.vehicleType)
-    val alertColor = when (alertLevel) {
-        SpeedAlertLevel.NORMAL -> DashboardTheme.NeedleBase
-        SpeedAlertLevel.WARNING -> DashboardTheme.AmberWarning
-        SpeedAlertLevel.DANGER -> DashboardTheme.CoralWarning
-    }
-
-    val gaugeTrackColor = DashboardTheme.GaugeTrack
-    val cyanNeonColor = DashboardTheme.CyanNeon
-    val electricBlueColor = DashboardTheme.ElectricBlue
-    val amberWarningColor = DashboardTheme.AmberWarning
-    val coralWarningColor = DashboardTheme.CoralWarning
-    val textPrimaryColor = DashboardTheme.TextPrimary
-    val textMutedColor = DashboardTheme.TextMuted
-
-    BoxWithConstraints(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
-    ) {
-        val sizePx = constraints.maxWidth.coerceAtMost(constraints.maxHeight).toFloat()
-        val diameterDp = (sizePx / 2.625f).dp // responsive gauge radius container
-
-        // Pure Canvas Layer: Gauge Arc, Ticks, Scale Numbers, and Needle
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            val center = Offset(size.width / 2f, size.height / 2f)
-            val gaugeRadius = (size.minDimension / 2f) - 16.dp.toPx()
-
-            // 1. Speed Gauge Arc (0–240 km/h)
-            drawSpeedGauge(
-                center = center,
-                radius = gaugeRadius,
-                currentSpeed = animatedSpeed,
-                textMeasurer = textMeasurer,
-                gaugeTrackColor = gaugeTrackColor,
-                cyanNeonColor = cyanNeonColor,
-                electricBlueColor = electricBlueColor,
-                amberWarningColor = amberWarningColor,
-                coralWarningColor = coralWarningColor,
-                textPrimaryColor = textPrimaryColor,
-                textMutedColor = textMutedColor
-            )
-
-            // 2. Precision Dynamic Needle with alert color
-            drawNeedle(
-                center = center,
-                radius = gaugeRadius,
-                currentSpeed = animatedSpeed,
-                needleColor = alertColor
-            )
-        }
-
-        // Center Digital HUD overlay (Speed value, brand label/warning, cardinal direction, unit badge)
-        CenterDigitalHud(
-            state = state,
-            alertLevel = alertLevel,
-            alertColor = alertColor,
-            onUnitClick = onUnitClick,
-            modifier = Modifier.size(diameterDp)
-        )
-    }
-}
-
-// =================================================================================================
-// CANVAS DRAWING EXTENSIONS
-// =================================================================================================
-
-private const val GAUGE_START_ANGLE = 140f
-private const val GAUGE_SWEEP_ANGLE = 260f
-private const val GAUGE_MAX_SPEED = 240f
-
-/**
- * Draws the circular speedometer arc (0 to 240 km/h) with major and minor ticks and numbers.
- */
-private fun DrawScope.drawSpeedGauge(
-    center: Offset,
-    radius: Float,
-    currentSpeed: Float,
-    textMeasurer: TextMeasurer,
-    gaugeTrackColor: Color,
-    cyanNeonColor: Color,
-    electricBlueColor: Color,
-    amberWarningColor: Color,
-    coralWarningColor: Color,
-    textPrimaryColor: Color,
-    textMutedColor: Color
-) {
-    val strokeWidth = 14.dp.toPx()
-    val arcRect = Size(radius * 2, radius * 2)
-    val arcTopLeft = Offset(center.x - radius, center.y - radius)
-
-    // 1. Background Inactive Arc Track
-    drawArc(
-        color = gaugeTrackColor,
-        startAngle = GAUGE_START_ANGLE,
-        sweepAngle = GAUGE_SWEEP_ANGLE,
-        useCenter = false,
-        topLeft = arcTopLeft,
-        size = arcRect,
-        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-    )
-
-    // 2. Active Dynamic Gradient Speed Arc
-    val clampedSpeed = currentSpeed.coerceIn(0f, GAUGE_MAX_SPEED)
-    val activeSweep = (clampedSpeed / GAUGE_MAX_SPEED) * GAUGE_SWEEP_ANGLE
-
-    if (activeSweep > 0.5f) {
-        val speedGradient = Brush.sweepGradient(
-            0.35f to cyanNeonColor,
-            0.65f to electricBlueColor,
-            0.85f to amberWarningColor,
-            1.00f to coralWarningColor,
-            center = center
-        )
-
-        drawArc(
-            brush = speedGradient,
-            startAngle = GAUGE_START_ANGLE,
-            sweepAngle = activeSweep,
-            useCenter = false,
-            topLeft = arcTopLeft,
-            size = arcRect,
-            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-        )
-    }
-
-    // 3. Dial Ticks and Numeric Scale (0 to 240 km/h, step 20)
-    val totalSteps = 24 // every 10 km/h
-    for (i in 0..totalSteps) {
-        val speedValue = i * 10
-        val isMajor = speedValue % 20 == 0
-        val fraction = speedValue / GAUGE_MAX_SPEED
-        val angleDeg = GAUGE_START_ANGLE + (fraction * GAUGE_SWEEP_ANGLE)
-        val angleRad = angleDeg * (PI.toFloat() / 180f)
-
-        val tickLength = if (isMajor) 10.dp.toPx() else 5.dp.toPx()
-        val tickStroke = if (isMajor) 2.dp.toPx() else 1.dp.toPx()
-        val tickColor = if (speedValue <= clampedSpeed) cyanNeonColor else textMutedColor
-
-        val outerX = center.x + (radius - 10.dp.toPx()) * cos(angleRad)
-        val outerY = center.y + (radius - 10.dp.toPx()) * sin(angleRad)
-        val innerX = center.x + (radius - 10.dp.toPx() - tickLength) * cos(angleRad)
-        val innerY = center.y + (radius - 10.dp.toPx() - tickLength) * sin(angleRad)
-
-        drawLine(
-            color = tickColor,
-            start = Offset(innerX, innerY),
-            end = Offset(outerX, outerY),
-            strokeWidth = tickStroke,
-            cap = StrokeCap.Round
-        )
-
-        // Draw scale numbers for major intervals (0, 40, 80, 120, 160, 200, 240)
-        if (speedValue % 40 == 0) {
-            val textStyle = TextStyle(
-                color = if (speedValue <= clampedSpeed) textPrimaryColor else textMutedColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = FontFamily.Monospace
-            )
-            val textLayout = textMeasurer.measure(speedValue.toString(), textStyle)
-            val textRadius = radius - 28.dp.toPx()
-            val textX = center.x + textRadius * cos(angleRad) - (textLayout.size.width / 2f)
-            val textY = center.y + textRadius * sin(angleRad) - (textLayout.size.height / 2f)
-
-            drawText(
-                textLayoutResult = textLayout,
-                topLeft = Offset(textX, textY)
-            )
-        }
-    }
-}
-
-/**
- * Draws the high-precision tapered speedometer needle.
- * The needle length is reduced to half-size (pointing from the outer gauge inward)
- * so it will never overflow the digital speed number in the center.
- */
-private fun DrawScope.drawNeedle(
-    center: Offset,
-    radius: Float,
-    currentSpeed: Float,
-    needleColor: Color
-) {
-    val clampedSpeed = currentSpeed.coerceIn(0f, GAUGE_MAX_SPEED)
-    val fraction = clampedSpeed / GAUGE_MAX_SPEED
-    val needleAngleDeg = GAUGE_START_ANGLE + (fraction * GAUGE_SWEEP_ANGLE)
-    val needleAngleRad = needleAngleDeg * (PI.toFloat() / 180f)
-
-    // Needle size is half, staying in the outer gauge zone without reaching the central speed number
-    val outerTipDistance = radius - 10.dp.toPx()
-    val innerBaseDistance = outerTipDistance * 0.52f
-    val needleBaseWidth = 4.dp.toPx()
-
-    // Calculate perpendicular offsets for tapered needle polygon
-    val perpRad = needleAngleRad + (PI.toFloat() / 2f)
-    val perpX = needleBaseWidth * cos(perpRad)
-    val perpY = needleBaseWidth * sin(perpRad)
-
-    val tipX = center.x + outerTipDistance * cos(needleAngleRad)
-    val tipY = center.y + outerTipDistance * sin(needleAngleRad)
-
-    val baseX = center.x + innerBaseDistance * cos(needleAngleRad)
-    val baseY = center.y + innerBaseDistance * sin(needleAngleRad)
-
-    val needlePath = Path().apply {
-        moveTo(tipX, tipY)
-        lineTo(baseX + perpX, baseY + perpY)
-        lineTo(baseX - perpX, baseY - perpY)
-        close()
-    }
-
-    // Shadow & glow
-    drawPath(
-        path = needlePath,
-        color = needleColor.copy(alpha = 0.35f),
-        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-    )
-
-    // Solid needle body
-    drawPath(
-        path = needlePath,
-        color = needleColor,
-        style = Fill
-    )
-}
-
-// =================================================================================================
-// CENTER DIGITAL HUD OVERLAY
-// =================================================================================================
-
-@Composable
-private fun CenterDigitalHud(
-    state: DashboardUiState,
-    alertLevel: SpeedAlertLevel,
-    alertColor: Color,
-    onUnitClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val speedTextColor = when (alertLevel) {
-        SpeedAlertLevel.NORMAL -> DashboardTheme.TextPrimary
-        SpeedAlertLevel.WARNING -> DashboardTheme.AmberWarning
-        SpeedAlertLevel.DANGER -> DashboardTheme.CoralWarning
-    }
-
-    Column(
-        modifier = modifier
-            .clip(CircleShape)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        // Branding + GPS Fix indicator or Warning/Danger Pill
-        if (alertLevel != SpeedAlertLevel.NORMAL) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(alertColor.copy(alpha = 0.2f))
-                    .border(1.dp, alertColor, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    text = if (alertLevel == SpeedAlertLevel.DANGER) "🚨 DANGER" else "⚠️ WARNING",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.5.sp,
-                        color = alertColor
-                    )
-                )
-            }
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(bottom = 2.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (state.hasGpsFix) DashboardTheme.MintActive else DashboardTheme.AmberWarning
-                        )
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "SPEEDASH",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 2.5.sp,
-                        color = DashboardTheme.TextSecondary
-                    )
-                )
-            }
-        }
-
-        // Prominent Digital Speed Readout
-        Text(
-            text = "${state.displaySpeed}",
-            style = MaterialTheme.typography.displayLarge.copy(
-                fontSize = 58.sp,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace,
-                color = speedTextColor,
-                letterSpacing = (-1.5).sp
-            )
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Interactive Speed Unit Badge (Tap to cycle KM/H -> MPH -> KNOTS)
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(DashboardTheme.SurfaceDark)
-                .border(1.5.dp, alertColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onUnitClick
-                )
-                .padding(horizontal = 14.dp, vertical = 4.dp)
-        ) {
-            Text(
-                text = state.speedUnit.speedLabel.uppercase(),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Black,
-                    color = alertColor,
-                    letterSpacing = 1.5.sp
-                )
-            )
-        }
-    }
-}
-
-/**
- * Custom Canvas vector rendering of the selected vehicle silhouette in custom style:
- * Car, Motorcycle, Train, Ship, Plane.
- */
-@Composable
-internal fun VehicleIconDisplay(
-    vehicleType: VehicleType,
-    color: Color = DashboardTheme.CyanNeon,
-    modifier: Modifier = Modifier
-) {
-    val mutedColor = DashboardTheme.TextMuted
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-
-        when (vehicleType) {
-            VehicleType.CAR -> {
-                // Sleek aerodynamic sports car silhouette
-                val carPath = Path().apply {
-                    moveTo(w * 0.05f, h * 0.75f)
-                    lineTo(w * 0.12f, h * 0.50f)
-                    lineTo(w * 0.28f, h * 0.45f)
-                    lineTo(w * 0.42f, h * 0.20f)
-                    lineTo(w * 0.72f, h * 0.20f)
-                    lineTo(w * 0.88f, h * 0.45f)
-                    lineTo(w * 0.95f, h * 0.52f)
-                    lineTo(w * 0.95f, h * 0.75f)
-                    // rear wheel arch
-                    lineTo(w * 0.85f, h * 0.75f)
-                    lineTo(w * 0.82f, h * 0.60f)
-                    lineTo(w * 0.68f, h * 0.60f)
-                    lineTo(w * 0.65f, h * 0.75f)
-                    // bottom chassis
-                    lineTo(w * 0.35f, h * 0.75f)
-                    // front wheel arch
-                    lineTo(w * 0.32f, h * 0.60f)
-                    lineTo(w * 0.18f, h * 0.60f)
-                    lineTo(w * 0.15f, h * 0.75f)
-                    close()
-                }
-                drawPath(carPath, color = color, style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round))
-
-                // Wheels
-                drawCircle(color = color, radius = h * 0.18f, center = Offset(w * 0.25f, h * 0.75f), style = Stroke(width = 1.5.dp.toPx()))
-                drawCircle(color = color, radius = h * 0.18f, center = Offset(w * 0.75f, h * 0.75f), style = Stroke(width = 1.5.dp.toPx()))
-            }
-            VehicleType.MOTORCYCLE -> {
-                // Racing sport bike silhouette
-                // Wheels
-                drawCircle(color = color, radius = h * 0.22f, center = Offset(w * 0.22f, h * 0.70f), style = Stroke(width = 1.5.dp.toPx()))
-                drawCircle(color = color, radius = h * 0.22f, center = Offset(w * 0.78f, h * 0.70f), style = Stroke(width = 1.5.dp.toPx()))
-
-                val framePath = Path().apply {
-                    moveTo(w * 0.22f, h * 0.70f) // rear hub
-                    lineTo(w * 0.45f, h * 0.45f) // engine / chassis
-                    lineTo(w * 0.70f, h * 0.35f) // handle base
-                    lineTo(w * 0.78f, h * 0.70f) // front fork hub
-                    moveTo(w * 0.70f, h * 0.35f)
-                    lineTo(w * 0.65f, h * 0.20f) // windshield / handlebars
-                    lineTo(w * 0.52f, h * 0.25f) // fuel tank
-                    lineTo(w * 0.35f, h * 0.38f) // seat
-                    lineTo(w * 0.25f, h * 0.38f) // tail fairing
-                    lineTo(w * 0.45f, h * 0.45f)
-                }
-                drawPath(framePath, color = color, style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round))
-            }
-            VehicleType.TRAIN -> {
-                // High-speed bullet train / locomotive silhouette
-                val trainPath = Path().apply {
-                    moveTo(w * 0.05f, h * 0.80f)
-                    lineTo(w * 0.05f, h * 0.25f)
-                    lineTo(w * 0.65f, h * 0.25f)
-                    lineTo(w * 0.92f, h * 0.55f)
-                    lineTo(w * 0.95f, h * 0.80f)
-                    close()
-                }
-                drawPath(trainPath, color = color, style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round))
-
-                // Aerodynamic Cockpit Window & stripe
-                val windowPath = Path().apply {
-                    moveTo(w * 0.68f, h * 0.33f)
-                    lineTo(w * 0.88f, h * 0.55f)
-                    lineTo(w * 0.72f, h * 0.55f)
-                    lineTo(w * 0.62f, h * 0.33f)
-                    close()
-                }
-                drawPath(windowPath, color = color, style = Fill)
-                // Train track rail line
-                drawLine(
-                    color = mutedColor,
-                    start = Offset(0f, h * 0.92f),
-                    end = Offset(w, h * 0.92f),
-                    strokeWidth = 1.5.dp.toPx()
-                )
-            }
-            VehicleType.SHIP -> {
-                // Ocean vessel / cruise ship silhouette with waterline
-                val hullPath = Path().apply {
-                    moveTo(w * 0.05f, h * 0.45f)
-                    lineTo(w * 0.20f, h * 0.80f)
-                    lineTo(w * 0.85f, h * 0.80f)
-                    lineTo(w * 0.95f, h * 0.45f)
-                    close()
-                }
-                drawPath(hullPath, color = color, style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round))
-
-                // Cabin superstructure
-                val cabinPath = Path().apply {
-                    moveTo(w * 0.25f, h * 0.45f)
-                    lineTo(w * 0.25f, h * 0.25f)
-                    lineTo(w * 0.65f, h * 0.25f)
-                    lineTo(w * 0.75f, h * 0.45f)
-                }
-                drawPath(cabinPath, color = color, style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round))
-
-                // Chimney / radar mast
-                drawLine(
-                    color = color,
-                    start = Offset(w * 0.45f, h * 0.25f),
-                    end = Offset(w * 0.45f, h * 0.12f),
-                    strokeWidth = 1.5.dp.toPx()
-                )
-                // Water wave
-                val wavePath = Path().apply {
-                    moveTo(0f, h * 0.88f)
-                    quadraticTo(w * 0.25f, h * 0.80f, w * 0.5f, h * 0.88f)
-                    quadraticTo(w * 0.75f, h * 0.96f, w, h * 0.88f)
-                }
-                drawPath(wavePath, color = mutedColor, style = Stroke(width = 1.dp.toPx()))
-            }
-            VehicleType.PLANE -> {
-                // Jet aircraft top/side silhouette
-                val planePath = Path().apply {
-                    // Fuselage nose to tail
-                    moveTo(w * 0.50f, h * 0.08f) // nose
-                    lineTo(w * 0.55f, h * 0.35f)
-                    lineTo(w * 0.95f, h * 0.58f) // right wing tip
-                    lineTo(w * 0.95f, h * 0.68f)
-                    lineTo(w * 0.55f, h * 0.55f)
-                    lineTo(w * 0.55f, h * 0.82f)
-                    lineTo(w * 0.72f, h * 0.92f) // right tail wing
-                    lineTo(w * 0.72f, h * 0.98f)
-                    lineTo(w * 0.50f, h * 0.92f) // tail center
-                    lineTo(w * 0.28f, h * 0.98f)
-                    lineTo(w * 0.28f, h * 0.92f) // left tail wing
-                    lineTo(w * 0.45f, h * 0.82f)
-                    lineTo(w * 0.45f, h * 0.55f)
-                    lineTo(w * 0.05f, h * 0.68f) // left wing tip
-                    lineTo(w * 0.05f, h * 0.58f)
-                    lineTo(w * 0.45f, h * 0.35f)
-                    close()
-                }
-                drawPath(planePath, color = color, style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round))
-                drawPath(planePath, color = color.copy(alpha = 0.25f), style = Fill)
-            }
-        }
-    }
-}
-
-// =================================================================================================
-// HEADER & BOTTOM TELEMETRY PANELS
-// =================================================================================================
-
-@Composable
-private fun TopStatusHeader(
-    trackingStatus: TrackingStatus,
-    accuracyMeters: Float?,
-    hasFix: Boolean,
-    headingDegrees: Int,
-    cardinalDirection: String,
-    hasCompassSensor: Boolean,
+private fun TripNameDialog(
+    isOpen: Boolean,
     strings: AppStrings,
-    speedAlertLevel: SpeedAlertLevel = SpeedAlertLevel.NORMAL,
-    vehicleType: VehicleType = VehicleType.CAR,
-    onSettingsClick: () -> Unit
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    if (!isOpen) return
+    var nameInput by remember { mutableStateOf("Trip - ${kotlin.random.Random.nextInt(100, 999)}") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = strings.tripNameDialogTitle, style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column {
+                Text(text = strings.tripNameDialogMessage, style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = { nameInput = it },
+                    singleLine = true,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(nameInput.ifBlank { "Trip" }) },
+                colors = ButtonDefaults.buttonColors(containerColor = DashboardTheme.CyanNeon, contentColor = DashboardTheme.BackgroundDark)
+            ) {
+                Text(text = strings.saveTrip, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+            }
+        },
+        dismissButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = DashboardTheme.SurfaceDark, contentColor = DashboardTheme.TextSecondary)
+            ) {
+                Text(text = strings.backButton, style = MaterialTheme.typography.labelMedium)
+            }
+        },
+        containerColor = DashboardTheme.SurfaceDark
+    )
+}
+
+// =================================================================================================
+// HEADER BAR
+// =================================================================================================
+
+@Composable
+private fun DashboardHeader(state: DashboardUiState, strings: AppStrings) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Top status row: STANDBY on left, GPS ACCURACY and SETTINGS on right
+        // Status Badge
+        StatusBadge(status = state.trackingStatus, strings = strings)
+
+        // Accuracy & Vehicle Type HUD
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Tracking State Badge
-            val (statusText, statusColor) = when (trackingStatus) {
-                TrackingStatus.Idle -> strings.statusStandby to DashboardTheme.TextSecondary
-                TrackingStatus.Acquiring -> strings.statusAcquiring to DashboardTheme.AmberWarning
-                TrackingStatus.Active -> strings.statusActive to DashboardTheme.MintActive
-                TrackingStatus.PermissionDenied -> strings.statusPermissionDenied to DashboardTheme.CoralWarning
-                is TrackingStatus.Error -> strings.statusGpsError to DashboardTheme.CoralWarning
+            state.gpsAccuracyMeters?.let { accuracy ->
+                BadgeChip(text = strings.accuracyFix(accuracy.roundToInt()), color = DashboardTheme.CyanNeon)
             }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(DashboardTheme.SurfaceDark)
-                    .border(1.dp, statusColor.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(statusColor)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = statusColor,
-                        letterSpacing = 1.sp
-                    )
-                )
-            }
-
-            // Right side: GPS Accuracy Indicator + Settings Button
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val accuracyText = if (hasFix && accuracyMeters != null) {
-                    strings.accuracyFix(accuracyMeters.roundToInt())
-                } else {
-                    strings.noFix
-                }
-
-                Text(
-                    text = accuracyText,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (hasFix) DashboardTheme.TextSecondary else DashboardTheme.TextMuted
-                    )
-                )
-
-                // Settings Screen Button
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(DashboardTheme.SurfaceDark)
-                        .border(1.dp, DashboardTheme.SurfaceBorder, CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onSettingsClick
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "⚙",
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            color = DashboardTheme.CyanNeon
-                        )
-                    )
-                }
-            }
+            BadgeChip(text = "${state.vehicleType.iconSymbol} ${state.vehicleType.displayName.uppercase()}", color = DashboardTheme.TextSecondary)
         }
+    }
+}
 
-        Spacer(modifier = Modifier.height(10.dp))
+@Composable
+private fun StatusBadge(status: TrackingStatus, strings: AppStrings) {
+    val (text, color) = when (status) {
+        TrackingStatus.Idle -> strings.statusStandby to DashboardTheme.TextMuted
+        TrackingStatus.Acquiring -> strings.statusAcquiring to DashboardTheme.AmberWarning
+        TrackingStatus.Active -> strings.statusActive to DashboardTheme.MintActive
+        TrackingStatus.PermissionDenied -> strings.statusPermissionDenied to DashboardTheme.CoralWarning
+        is TrackingStatus.Error -> strings.statusGpsError to DashboardTheme.CoralWarning
+    }
 
-        // Large Heading Readout placed below STANDBY, centered horizontally in the middle
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .background(DashboardTheme.SurfaceDark, RoundedCornerShape(20.dp))
+            .border(1.dp, DashboardTheme.SurfaceBorder, RoundedCornerShape(20.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
         Text(
-            text = "${headingDegrees.toString().padStart(3, '0')}° $cardinalDirection",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontSize = 28.sp,
+            text = text,
+            style = MaterialTheme.typography.labelSmall.copy(
                 fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace,
-                color = DashboardTheme.CyanNeon,
+                letterSpacing = 1.sp,
+                color = DashboardTheme.TextPrimary
+            )
+        )
+    }
+}
+
+@Composable
+private fun BadgeChip(text: String, color: Color) {
+    Box(
+        modifier = Modifier
+            .background(DashboardTheme.SurfaceDark, RoundedCornerShape(8.dp))
+            .border(1.dp, DashboardTheme.SurfaceBorder, RoundedCornerShape(8.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+        )
+    }
+}
+
+// =================================================================================================
+// ANALOG GAUGE & SPEEDOMETER
+// =================================================================================================
+
+// =================================================================================================
+// COMPASS HUD HEADER
+// =================================================================================================
+
+@Composable
+private fun CompassHudHeader(state: DashboardUiState) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Text(
+            text = "▲",
+            color = DashboardTheme.CyanNeon,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = "${state.headingDegrees}° ${state.cardinalDirection}",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = DashboardTheme.TextPrimary,
                 letterSpacing = 1.5.sp
             )
         )
-
-        // Arrow facing UP (▲)
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
-            text = "▲",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Black,
-                color = DashboardTheme.CyanNeon
+            text = state.vehicleType.iconSymbol,
+            fontSize = 24.sp
+        )
+    }
+}
+
+// =================================================================================================
+// ANALOG GAUGE & SPEEDOMETER
+// =================================================================================================
+
+@Composable
+private fun AnalogSpeedometerGauge(state: DashboardUiState, strings: AppStrings, onIntent: (DashboardUiIntent) -> Unit) {
+    val gaugeTrackColor = DashboardTheme.GaugeTrack
+    val textSecondaryColor = DashboardTheme.TextSecondary
+    val textMutedColor = DashboardTheme.TextMuted
+    val cyanNeonColor = DashboardTheme.CyanNeon
+    val electricBlueColor = DashboardTheme.ElectricBlue
+    val coralWarningColor = DashboardTheme.CoralWarning
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1.0f),
+        contentAlignment = Alignment.Center
+    ) {
+        val size = minOf(maxWidth, maxHeight)
+        val textMeasurer = rememberTextMeasurer()
+
+        val animatedSpeed by animateFloatAsState(
+            targetValue = state.smoothedSpeedKmh.toFloat(),
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow
             ),
-            modifier = Modifier.padding(top = 2.dp)
+            label = "SpeedNeedleAnimation"
         )
 
-        // Vehicle icon placed directly below the compass arrow
-        val headerIconColor = if (speedAlertLevel == SpeedAlertLevel.DANGER) DashboardTheme.CoralWarning else if (speedAlertLevel == SpeedAlertLevel.WARNING) DashboardTheme.AmberWarning else DashboardTheme.CyanNeon
-        VehicleIconDisplay(
-            vehicleType = vehicleType,
-            color = headerIconColor,
-            modifier = Modifier
-                .padding(top = 4.dp)
-                .size(width = 36.dp, height = 24.dp)
-        )
+        Canvas(modifier = Modifier.size(size)) {
+            val center = Offset(this.size.width / 2f, this.size.height / 2f)
+            val radius = minOf(center.x, center.y) * 0.95f
 
-        // Speed Warning / Danger Alert Banner
-        if (speedAlertLevel != SpeedAlertLevel.NORMAL) {
-            val alertColor = if (speedAlertLevel == SpeedAlertLevel.DANGER) DashboardTheme.CoralWarning else DashboardTheme.AmberWarning
-            val alertText = if (speedAlertLevel == SpeedAlertLevel.DANGER) "🚨 DANGER" else "⚠️ WARNING"
+            drawGaugeTicksAndLabels(center, radius * 0.88f, textMeasurer, gaugeTrackColor, textSecondaryColor, textMutedColor)
+            drawSpeedArc(center, radius * 0.88f, animatedSpeed, cyanNeonColor, electricBlueColor, coralWarningColor)
+            drawSpeedNeedle(center, radius * 0.78f, animatedSpeed, cyanNeonColor)
+        }
 
-            Spacer(modifier = Modifier.height(6.dp))
+        // Digital Speedometer readout in center with ASL altitude below
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(top = 20.dp)
+        ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(alertColor.copy(alpha = 0.18f))
-                    .border(1.dp, alertColor, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = alertText,
-                    style = MaterialTheme.typography.labelMedium.copy(
+                    text = "${state.displaySpeed}",
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontSize = 64.sp,
                         fontWeight = FontWeight.Black,
-                        color = alertColor,
-                        letterSpacing = 1.5.sp
+                        fontFamily = FontFamily.Monospace,
+                        color = DashboardTheme.TextPrimary
                     )
                 )
+            }
+            Text(
+                text = state.speedUnit.speedLabel,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = DashboardTheme.CyanNeon,
+                    letterSpacing = 2.sp
+                ),
+                modifier = Modifier.clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) {
+                    onIntent(DashboardUiIntent.CycleSpeedUnit)
+                }
+            )
+            state.displayAltitudeMeters?.let { altitude ->
+                Spacer(modifier = Modifier.height(6.dp))
+                BadgeChip(text = strings.altitudeFormat(altitude), color = DashboardTheme.ElectricBlue)
             }
         }
     }
 }
+
+private fun DrawScope.drawGaugeTicksAndLabels(
+    center: Offset,
+    radius: Float,
+    textMeasurer: TextMeasurer,
+    gaugeTrackColor: Color,
+    textSecondaryColor: Color,
+    textMutedColor: Color
+) {
+    val startAngle = 135.0
+    val totalAngle = 270.0
+    val maxSpeed = 240.0
+    val step = 20.0
+
+    drawCircle(
+        color = gaugeTrackColor,
+        radius = radius,
+        center = center,
+        style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+    )
+
+    var speed = 0.0
+    while (speed <= maxSpeed) {
+        val fraction = speed / maxSpeed
+        val angleDeg = startAngle + (fraction * totalAngle)
+        val angleRad = angleDeg * (PI / 180.0)
+
+        val isMajor = true // Every 20 interval is major with label
+        val tickLength = 10.dp.toPx()
+        val strokeWidth = 2.dp.toPx()
+
+        val outerX = center.x + radius * cos(angleRad).toFloat()
+        val outerY = center.y + radius * sin(angleRad).toFloat()
+        val innerX = center.x + (radius - tickLength) * cos(angleRad).toFloat()
+        val innerY = center.y + (radius - tickLength) * sin(angleRad).toFloat()
+
+        drawLine(
+            color = if (isMajor) textSecondaryColor else textMutedColor,
+            start = Offset(outerX, outerY),
+            end = Offset(innerX, innerY),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+
+        if (isMajor) {
+            val labelRadius = radius - 26.dp.toPx()
+            val labelX = center.x + labelRadius * cos(angleRad).toFloat()
+            val labelY = center.y + labelRadius * sin(angleRad).toFloat()
+
+            val textLayoutResult = textMeasurer.measure(
+                text = "${speed.toInt()}",
+                style = TextStyle(
+                    color = textSecondaryColor,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+            drawText(
+                textLayoutResult = textLayoutResult,
+                topLeft = Offset(labelX - textLayoutResult.size.width / 2f, labelY - textLayoutResult.size.height / 2f)
+            )
+        }
+        speed += step
+    }
+}
+
+private fun DrawScope.drawSpeedArc(
+    center: Offset,
+    radius: Float,
+    currentSpeed: Float,
+    cyanNeonColor: Color,
+    electricBlueColor: Color,
+    coralWarningColor: Color
+) {
+    val startAngle = 135.0f
+    val totalAngle = 270.0f
+    val maxSpeed = 240.0f
+    val sweepAngle = (currentSpeed.coerceIn(0f, maxSpeed) / maxSpeed) * totalAngle
+
+    drawArc(
+        brush = Brush.sweepGradient(
+            colors = listOf(cyanNeonColor, electricBlueColor, coralWarningColor)
+        ),
+        startAngle = startAngle,
+        sweepAngle = sweepAngle,
+        useCenter = false,
+        topLeft = Offset(center.x - radius, center.y - radius),
+        size = Size(radius * 2, radius * 2),
+        style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
+    )
+}
+
+private fun DrawScope.drawSpeedNeedle(
+    center: Offset,
+    radius: Float,
+    currentSpeed: Float,
+    cyanNeonColor: Color
+) {
+    val startAngle = 135.0
+    val totalAngle = 270.0
+    val maxSpeed = 240.0f
+    val fraction = (currentSpeed.coerceIn(0f, maxSpeed) / maxSpeed).toDouble()
+    val angleDeg = startAngle + (fraction * totalAngle)
+    val angleRad = angleDeg * (PI / 180.0)
+
+    val tipX = center.x + radius * cos(angleRad).toFloat()
+    val tipY = center.y + radius * sin(angleRad).toFloat()
+    val baseDistance = radius * 0.4f
+    val baseX = center.x + baseDistance * cos(angleRad).toFloat()
+    val baseY = center.y + baseDistance * sin(angleRad).toFloat()
+
+    drawLine(
+        color = cyanNeonColor,
+        start = Offset(baseX, baseY),
+        end = Offset(tipX, tipY),
+        strokeWidth = 3.dp.toPx(),
+        cap = StrokeCap.Round
+    )
+}
+
+// =================================================================================================
+// BOTTOM TELEMETRY CONTROLS
+// =================================================================================================
 
 @Composable
 private fun BottomTelemetryControls(
@@ -1101,7 +794,121 @@ private fun BottomTelemetryControls(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Trip Recording Panel & Controls
+        if (state.isTripRecording) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = DashboardTheme.SurfaceDark),
+                border = BorderStroke(1.5.dp, if (state.isTripRecordingActive) DashboardTheme.CyanNeon else DashboardTheme.AmberWarning),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🔴 ${state.currentTripName}",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = DashboardTheme.CyanNeon
+                            )
+                        )
+                        Text(
+                            text = if (state.isTripRecordingActive) "RECORDING" else "PAUSED",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Black,
+                                color = if (state.isTripRecordingActive) DashboardTheme.MintActive else DashboardTheme.AmberWarning
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        TripMetricView(label = strings.durationLabel, value = formatDuration(state.currentTripElapsedMillis))
+                        TripMetricView(label = strings.distanceLabel, value = "${formatOneDecimal(state.tripRecordingDistanceKm)} km")
+                        TripMetricView(label = strings.avgSpeedLabel, value = "${state.tripRecordingAvgSpeedKmh.roundToInt()} km/h")
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (state.isTripRecordingActive) {
+                                    onIntent(DashboardUiIntent.PauseTripRecording)
+                                } else {
+                                    onIntent(DashboardUiIntent.ResumeTripRecording)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = DashboardTheme.SurfaceBorder,
+                                contentColor = DashboardTheme.TextPrimary
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                        ) {
+                            Text(
+                                text = if (state.isTripRecordingActive) strings.pauseTrip else strings.resumeTrip,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                        Button(
+                            onClick = { onIntent(DashboardUiIntent.StopTripRecording) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = DashboardTheme.CoralWarning,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                        ) {
+                            Text(
+                                text = strings.stopTrip,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        } else {
+            // Record Trip Button
+            Button(
+                onClick = { onIntent(DashboardUiIntent.ShowTripNameDialog) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = DashboardTheme.SurfaceDark,
+                    contentColor = DashboardTheme.CyanNeon
+                ),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, DashboardTheme.CyanNeon),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+            ) {
+                Text(
+                    text = strings.recordTrip,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.2.sp
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
 
         // Action Controls: Start/Stop Primary Button + Reset Trip + Settings
         Row(
@@ -1170,7 +977,42 @@ private fun BottomTelemetryControls(
     }
 }
 
+@Composable
+private fun TripMetricView(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 10.sp,
+                color = DashboardTheme.TextMuted,
+                fontWeight = FontWeight.Bold
+            )
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Black,
+                color = DashboardTheme.TextPrimary
+            )
+        )
+    }
+}
 
+private fun formatDuration(millis: Long): String {
+    val totalSeconds = millis / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    val minStr = if (minutes < 10) "0$minutes" else "$minutes"
+    val secStr = if (seconds < 10) "0$seconds" else "$seconds"
+    return if (hours > 0) {
+        "${hours}h ${minStr}m"
+    } else {
+        "$minStr:$secStr"
+    }
+}
 
 @Composable
 private fun TelemetryMetricItem(

@@ -3,9 +3,11 @@ package com.syseno.speedash.di
 import com.syseno.speedash.data.repository.BarometerRepositoryImpl
 import com.syseno.speedash.data.repository.CompassRepositoryImpl
 import com.syseno.speedash.data.repository.LocationRepositoryImpl
+import com.syseno.speedash.data.repository.TripRepositoryImpl
 import com.syseno.speedash.domain.repository.BarometerRepository
 import com.syseno.speedash.domain.repository.CompassRepository
 import com.syseno.speedash.domain.repository.LocationRepository
+import com.syseno.speedash.domain.repository.TripRepository
 import com.syseno.speedash.domain.usecase.ObserveVehicleTelemetryUseCase
 import com.syseno.speedash.domain.usecase.ProcessGpsSignalUseCase
 import com.syseno.speedash.presentation.dashboard.DashboardViewModel
@@ -30,6 +32,7 @@ val dataModule: Module = module {
     singleOf(::LocationRepositoryImpl) { bind<LocationRepository>() }
     singleOf(::CompassRepositoryImpl) { bind<CompassRepository>() }
     singleOf(::BarometerRepositoryImpl) { bind<BarometerRepository>() }
+    singleOf(::TripRepositoryImpl) { bind<TripRepository>() }
 }
 
 /** Domain layer: stateless use cases (factory — each consumer gets a fresh pipeline). */

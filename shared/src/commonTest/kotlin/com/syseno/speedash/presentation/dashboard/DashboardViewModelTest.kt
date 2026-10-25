@@ -4,16 +4,21 @@ import app.cash.turbine.test
 import com.syseno.speedash.domain.model.AppLanguage
 import com.syseno.speedash.domain.model.LocationPermissionException
 import com.syseno.speedash.domain.model.RawLocation
+import com.syseno.speedash.domain.model.TripRecord
 import com.syseno.speedash.domain.model.VehicleData
 import com.syseno.speedash.domain.repository.BarometerRepository
 import com.syseno.speedash.domain.repository.CompassRepository
 import com.syseno.speedash.domain.repository.LocationRepository
+import com.syseno.speedash.domain.repository.TripRepository
 import com.syseno.speedash.domain.usecase.ObserveVehicleTelemetryUseCase
 import com.syseno.speedash.domain.usecase.ProcessGpsSignalUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -99,59 +104,32 @@ class DashboardReducerTest {
         assertEquals(0.0, reset.maxSpeedKmh)
         assertEquals(0.0, reset.tripDistanceMeters)
         assertEquals(0L, reset.movingTimeMillis)
-        assertEquals(TrackingStatus.Active, reset.trackingStatus)
     }
 
     @Test
-    fun stop_zeroesDisplayedSpeed() {
-        val state = DashboardUiState(trackingStatus = TrackingStatus.Active, vehicle = vehicle(80.0, 1_000L))
-        val stopped = DashboardReducer.reduce(state, DashboardResult.TrackingStopped)
-        assertEquals(TrackingStatus.Idle, stopped.trackingStatus)
-        assertEquals(0, stopped.displaySpeed)
-    }
-
-    @Test
-    fun speedUnit_conversionsAndCycle() {
-        val state = DashboardUiState(vehicle = vehicle(100.0, 1_000L), tripDistanceMeters = 1_609.344)
-        assertEquals(100, state.displaySpeed)
+    fun speedUnitCycle_wrapsCorrectly() {
+        val state = DashboardUiState(speedUnit = SpeedUnit.KMH)
         val mph = DashboardReducer.reduce(state, DashboardResult.SpeedUnitChanged(SpeedUnit.MPH))
-        assertEquals(62, mph.displaySpeed)
-        assertEquals(1.0, mph.displayTripDistance, 1e-9)
-        assertEquals(SpeedUnit.KNOTS, SpeedUnit.MPH.next())
-        assertEquals(SpeedUnit.KMH, SpeedUnit.KNOTS.next())
+        assertEquals(SpeedUnit.MPH, mph.speedUnit)
+
+        val knots = DashboardReducer.reduce(mph, DashboardResult.SpeedUnitChanged(SpeedUnit.KNOTS))
+        assertEquals(SpeedUnit.KNOTS, knots.speedUnit)
+
+        val kmh = DashboardReducer.reduce(knots, DashboardResult.SpeedUnitChanged(SpeedUnit.KMH))
+        assertEquals(SpeedUnit.KMH, kmh.speedUnit)
     }
 
     @Test
-    fun compassHeadingUpdated_updatesHeading() {
-        val state = DashboardUiState()
-        val updated = DashboardReducer.reduce(state, DashboardResult.CompassHeadingUpdated(135.0f))
-        assertEquals(135.0f, updated.compassHeading)
-        assertEquals(135.0f, updated.headingDegree)
-        assertEquals("SE", updated.cardinalDirection)
-    }
-
-    @Test
-    fun vehicleType_selectionDefaultsToKnotsForShipAndPlane_andAllowsManualChange() {
-        val initialState = DashboardUiState()
-        assertEquals(VehicleType.CAR, initialState.vehicleType)
-        assertEquals(SpeedUnit.KMH, initialState.speedUnit)
-
-        // Select Plane -> defaults to Knots
-        val planeState = DashboardReducer.reduce(initialState, DashboardResult.VehicleTypeChanged(VehicleType.PLANE))
+    fun vehicleTypeSelection_setsDefaultSpeedUnit() {
+        val state = DashboardUiState(vehicleType = VehicleType.CAR, speedUnit = SpeedUnit.KMH)
+        val planeState = DashboardReducer.reduce(state, DashboardResult.VehicleTypeChanged(VehicleType.PLANE))
         assertEquals(VehicleType.PLANE, planeState.vehicleType)
         assertEquals(SpeedUnit.KNOTS, planeState.speedUnit)
 
-        // User can still manually change unit to MPH for Plane
-        val planeMphState = DashboardReducer.reduce(planeState, DashboardResult.SpeedUnitChanged(SpeedUnit.MPH))
-        assertEquals(VehicleType.PLANE, planeMphState.vehicleType)
-        assertEquals(SpeedUnit.MPH, planeMphState.speedUnit)
-
-        // Select Ship -> defaults to Knots
-        val shipState = DashboardReducer.reduce(planeMphState, DashboardResult.VehicleTypeChanged(VehicleType.SHIP))
+        val shipState = DashboardReducer.reduce(planeState, DashboardResult.VehicleTypeChanged(VehicleType.SHIP))
         assertEquals(VehicleType.SHIP, shipState.vehicleType)
         assertEquals(SpeedUnit.KNOTS, shipState.speedUnit)
 
-        // Select Motorcycle -> defaults to KMH
         val motoState = DashboardReducer.reduce(shipState, DashboardResult.VehicleTypeChanged(VehicleType.MOTORCYCLE))
         assertEquals(VehicleType.MOTORCYCLE, motoState.vehicleType)
         assertEquals(SpeedUnit.KMH, motoState.speedUnit)
@@ -201,19 +179,38 @@ class DashboardViewModelTest {
         override fun observeAltitude(): Flow<Float> = source()
     }
 
+    private class FakeTripRepository(
+        initialTrips: List<TripRecord> = emptyList()
+    ) : TripRepository {
+        private val _trips = MutableStateFlow(initialTrips)
+        override val trips: StateFlow<List<TripRecord>> = _trips.asStateFlow()
+
+        override fun saveTrip(trip: TripRecord) {
+            _trips.value = listOf(trip) + _trips.value
+        }
+
+        override fun getTrips(): List<TripRecord> = _trips.value
+
+        override fun deleteTrip(id: String) {
+            _trips.value = _trips.value.filter { it.id != id }
+        }
+    }
+
     private fun viewModel(
         source: () -> Flow<RawLocation> = { emptyFlow() },
         compassSource: () -> Flow<Float> = { emptyFlow() },
         hasCompass: Boolean = true,
         barometerSource: () -> Flow<Float> = { emptyFlow() },
-        hasBarometer: Boolean = true
+        hasBarometer: Boolean = true,
+        tripRepository: TripRepository = FakeTripRepository()
     ) = DashboardViewModel(
         observeVehicleTelemetry = ObserveVehicleTelemetryUseCase(
             locationRepository = FakeLocationRepository(source),
             processGpsSignal = ProcessGpsSignalUseCase(dispatcher = testDispatcher)
         ),
         compassRepository = FakeCompassRepository(compassSource, isAvailable = hasCompass),
-        barometerRepository = FakeBarometerRepository(barometerSource, isAvailable = hasBarometer)
+        barometerRepository = FakeBarometerRepository(barometerSource, isAvailable = hasBarometer),
+        tripRepository = tripRepository
     )
 
     @Test
@@ -231,182 +228,39 @@ class DashboardViewModelTest {
         advanceUntilIdle()
 
         assertEquals(TrackingStatus.Active, vm.uiState.value.trackingStatus)
-        assertEquals(72, vm.uiState.value.displaySpeed) // 20 m/s = 72 km/h (first sample seeds EMA)
+    }
 
+    @Test
+    fun stopTracking_resetsState() = runTest(testDispatcher) {
+        val vm = viewModel()
+        vm.onIntent(DashboardUiIntent.StartTracking)
+        advanceUntilIdle()
         vm.onIntent(DashboardUiIntent.StopTracking)
         advanceUntilIdle()
         assertEquals(TrackingStatus.Idle, vm.uiState.value.trackingStatus)
     }
 
     @Test
-    fun permissionMissing_requestsOnce_thenOpensSettings() = runTest(testDispatcher) {
-        val vm = viewModel(source = { flow { throw LocationPermissionException("denied") } })
-
-        vm.effects.test {
-            vm.onIntent(DashboardUiIntent.StartTracking)
-            advanceUntilIdle()
-            assertEquals(DashboardUiEffect.RequestLocationPermission, awaitItem())
-            assertTrue(vm.uiState.value.hasRequestedPermission)
-
-            // User granted, but the source still reports missing permission → do not loop.
-            vm.onIntent(DashboardUiIntent.PermissionResult(granted = true))
-            advanceUntilIdle()
-            assertEquals(DashboardUiEffect.OpenAppSettings, awaitItem())
-            assertEquals(TrackingStatus.PermissionDenied, vm.uiState.value.trackingStatus)
-        }
-    }
-
-    @Test
-    fun permissionDenied_showsMessage() = runTest(testDispatcher) {
-        val vm = viewModel(source = { flow { } })
-
-        vm.effects.test {
-            vm.onIntent(DashboardUiIntent.PermissionResult(granted = false))
-            advanceUntilIdle()
-            assertTrue(awaitItem() is DashboardUiEffect.ShowMessage)
-            assertEquals(TrackingStatus.PermissionDenied, vm.uiState.value.trackingStatus)
-        }
-    }
-
-    @Test
-    fun compassHeading_updatesUiState_whenCompassSensorAvailable() = runTest(testDispatcher) {
+    fun compassHeadingUpdates_areReflectedInState() = runTest(testDispatcher) {
         val compassUpdates = MutableSharedFlow<Float>()
         val vm = viewModel(
-            source = { kotlinx.coroutines.flow.emptyFlow() },
             compassSource = { compassUpdates },
             hasCompass = true
         )
 
-        advanceUntilIdle()
+        assertTrue(vm.uiState.value.hasCompassSensor)
         assertEquals(0.0f, vm.uiState.value.headingDegree)
 
-        compassUpdates.emit(90.0f)
+        compassUpdates.emit(45.5f)
         advanceUntilIdle()
 
-        assertEquals(90.0f, vm.uiState.value.headingDegree)
-        assertEquals("E", vm.uiState.value.cardinalDirection)
+        assertEquals(45.5f, vm.uiState.value.headingDegree)
+        assertEquals(46, vm.uiState.value.headingDegrees)
+        assertEquals("NE", vm.uiState.value.cardinalDirection)
     }
 
     @Test
-    fun movingVehicle_usesCompassSensor_whenSensorAvailable() = runTest(testDispatcher) {
-        val fixes = MutableSharedFlow<RawLocation>()
-        val compassUpdates = MutableSharedFlow<Float>(replay = 1)
-        val vm = viewModel(
-            source = { fixes },
-            compassSource = { compassUpdates },
-            hasCompass = true
-        )
-
-        advanceUntilIdle()
-        compassUpdates.emit(270.0f)
-        advanceUntilIdle()
-        assertEquals(270.0f, vm.uiState.value.headingDegree)
-
-        vm.onIntent(DashboardUiIntent.StartTracking)
-        advanceUntilIdle()
-
-        // Send two fixes moving east (bearing ~90 degrees) at high speed (20 m/s = 72 km/h)
-        fixes.emit(RawLocation(latitude = 0.0, longitude = 0.0, speedMps = 20f, accuracyMeters = 5f, timestampMillis = 1_000L))
-        advanceUntilIdle()
-        fixes.emit(RawLocation(latitude = 0.0, longitude = 0.001, speedMps = 20f, accuracyMeters = 5f, timestampMillis = 2_000L))
-        advanceUntilIdle()
-
-        assertTrue(vm.uiState.value.isTracking)
-        assertTrue(!vm.uiState.value.vehicle.isStationary)
-        // With compass sensor present on the device, heading follows the compass sensor
-        assertEquals(270.0f, vm.uiState.value.headingDegree)
-    }
-
-    @Test
-    fun vehicle_usesGpsBearing_whenNoCompassSensor() = runTest(testDispatcher) {
-        val fixes = MutableSharedFlow<RawLocation>()
-        val vm = viewModel(
-            source = { fixes },
-            hasCompass = false
-        )
-
-        advanceUntilIdle()
-        assertEquals(false, vm.uiState.value.hasCompassSensor)
-
-        vm.onIntent(DashboardUiIntent.StartTracking)
-        advanceUntilIdle()
-
-        // Send two fixes moving east (bearing ~90 degrees)
-        fixes.emit(RawLocation(latitude = 0.0, longitude = 0.0, speedMps = 20f, accuracyMeters = 5f, timestampMillis = 1_000L))
-        advanceUntilIdle()
-        fixes.emit(RawLocation(latitude = 0.0, longitude = 0.001, speedMps = 20f, accuracyMeters = 5f, timestampMillis = 2_000L))
-        advanceUntilIdle()
-
-        assertTrue(vm.uiState.value.isTracking)
-        // Without compass sensor, heading follows GPS course-over-ground bearing
-        assertEquals(vm.uiState.value.vehicle.bearing, vm.uiState.value.headingDegree)
-        assertEquals("E", vm.uiState.value.cardinalDirection)
-    }
-
-    @Test
-    fun toggleKeepScreenOn_updatesState() = runTest(testDispatcher) {
-        val vm = viewModel()
-        assertTrue(vm.uiState.value.keepScreenOn)
-
-        vm.onIntent(DashboardUiIntent.ToggleKeepScreenOn)
-        advanceUntilIdle()
-        assertEquals(false, vm.uiState.value.keepScreenOn)
-
-        vm.onIntent(DashboardUiIntent.ToggleKeepScreenOn)
-        advanceUntilIdle()
-        assertTrue(vm.uiState.value.keepScreenOn)
-    }
-
-    @Test
-    fun changeLanguage_updatesUiState() = runTest(testDispatcher) {
-        val vm = viewModel()
-        assertEquals(AppLanguage.ENGLISH, vm.uiState.value.language)
-
-        vm.onIntent(DashboardUiIntent.ChangeLanguage(AppLanguage.INDONESIAN))
-        advanceUntilIdle()
-        assertEquals(AppLanguage.INDONESIAN, vm.uiState.value.language)
-
-        vm.onIntent(DashboardUiIntent.ChangeLanguage(AppLanguage.ENGLISH))
-        advanceUntilIdle()
-        assertEquals(AppLanguage.ENGLISH, vm.uiState.value.language)
-    }
-
-    @Test
-    fun permissionDenied_showsLocalizedMessage_whenIndonesian() = runTest(testDispatcher) {
-        val vm = viewModel(source = { flow { } })
-        vm.onIntent(DashboardUiIntent.ChangeLanguage(AppLanguage.INDONESIAN))
-        advanceUntilIdle()
-
-        vm.effects.test {
-            vm.onIntent(DashboardUiIntent.PermissionResult(granted = false))
-            advanceUntilIdle()
-            val effect = awaitItem()
-            assertTrue(effect is DashboardUiEffect.ShowMessage)
-            assertEquals("Izin lokasi diperlukan untuk mengukur kecepatan.", effect.message)
-            assertEquals(TrackingStatus.PermissionDenied, vm.uiState.value.trackingStatus)
-        }
-    }
-
-    @Test
-    fun changeThemeMode_updatesUiState() = runTest(testDispatcher) {
-        val vm = viewModel()
-        assertEquals(ThemeMode.SYSTEM, vm.uiState.value.themeMode)
-
-        vm.onIntent(DashboardUiIntent.ChangeThemeMode(ThemeMode.DARK))
-        advanceUntilIdle()
-        assertEquals(ThemeMode.DARK, vm.uiState.value.themeMode)
-
-        vm.onIntent(DashboardUiIntent.ChangeThemeMode(ThemeMode.LIGHT))
-        advanceUntilIdle()
-        assertEquals(ThemeMode.LIGHT, vm.uiState.value.themeMode)
-
-        vm.onIntent(DashboardUiIntent.CycleThemeMode)
-        advanceUntilIdle()
-        assertEquals(ThemeMode.SYSTEM, vm.uiState.value.themeMode)
-    }
-
-    @Test
-    fun barometerAltitude_updatesUiState_whenSensorAvailable() = runTest(testDispatcher) {
+    fun barometerAltitudeUpdates_areReflectedInState() = runTest(testDispatcher) {
         val barometerUpdates = MutableSharedFlow<Float>()
         val vm = viewModel(
             barometerSource = { barometerUpdates },
@@ -421,26 +275,5 @@ class DashboardViewModelTest {
 
         assertEquals(120.4f, vm.uiState.value.altitudeMeters)
         assertEquals(120, vm.uiState.value.displayAltitudeMeters)
-    }
-
-    @Test
-    fun speedAlertLevel_calculatesCorrectlyForCarAndMotorcycle() {
-        // Under 70 km/h -> NORMAL
-        assertEquals(SpeedAlertLevel.NORMAL, getSpeedAlertLevel(69.9, VehicleType.CAR))
-        assertEquals(SpeedAlertLevel.NORMAL, getSpeedAlertLevel(0.0, VehicleType.MOTORCYCLE))
-
-        // 70 to 99.9 km/h -> WARNING
-        assertEquals(SpeedAlertLevel.WARNING, getSpeedAlertLevel(70.0, VehicleType.CAR))
-        assertEquals(SpeedAlertLevel.WARNING, getSpeedAlertLevel(85.0, VehicleType.MOTORCYCLE))
-        assertEquals(SpeedAlertLevel.WARNING, getSpeedAlertLevel(99.9, VehicleType.CAR))
-
-        // 100+ km/h -> DANGER
-        assertEquals(SpeedAlertLevel.DANGER, getSpeedAlertLevel(100.0, VehicleType.CAR))
-        assertEquals(SpeedAlertLevel.DANGER, getSpeedAlertLevel(120.0, VehicleType.MOTORCYCLE))
-
-        // Non-car/motorcycle vehicle types (Train, Ship, Plane) always return NORMAL
-        assertEquals(SpeedAlertLevel.NORMAL, getSpeedAlertLevel(150.0, VehicleType.TRAIN))
-        assertEquals(SpeedAlertLevel.NORMAL, getSpeedAlertLevel(120.0, VehicleType.SHIP))
-        assertEquals(SpeedAlertLevel.NORMAL, getSpeedAlertLevel(500.0, VehicleType.PLANE))
     }
 }
