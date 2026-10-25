@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Precise GPS for speed measurement. Android 12+ requires COARSE to be requested alongside FINE. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!--
+        Background tracking (screen off) will require a foreground service in a later step:
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+        Intentionally NOT declared yet — declaring them triggers Play Console policy review.
+    -->
+
+    <!-- GPS hardware is preferred but not mandatory, so the app stays installable on all devices. -->
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+
+</manifest>

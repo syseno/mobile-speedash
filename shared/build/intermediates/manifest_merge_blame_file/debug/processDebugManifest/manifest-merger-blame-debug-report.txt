@@ -1,0 +1,37 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.syseno.speedash" >
+4
+5    <uses-sdk android:minSdkVersion="26" />
+6
+7    <!-- Precise GPS for speed measurement. Android 12+ requires COARSE to be requested alongside FINE. -->
+8    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+8-->C:\Users\singg\Development\mobile-speedash\shared\src\androidMain\AndroidManifest.xml:5:5-79
+8-->C:\Users\singg\Development\mobile-speedash\shared\src\androidMain\AndroidManifest.xml:5:22-76
+9    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+9-->C:\Users\singg\Development\mobile-speedash\shared\src\androidMain\AndroidManifest.xml:6:5-81
+9-->C:\Users\singg\Development\mobile-speedash\shared\src\androidMain\AndroidManifest.xml:6:22-78
+10
+11    <!--
+12        Background tracking (screen off) will require a foreground service in a later step:
+13        <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+14        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+15        Intentionally NOT declared yet — declaring them triggers Play Console policy review.
+16    -->
+17
+18
+19    <!-- GPS hardware is preferred but not mandatory, so the app stays installable on all devices. -->
+20    <uses-feature
+20-->C:\Users\singg\Development\mobile-speedash\shared\src\androidMain\AndroidManifest.xml:16:5-87
+21        android:name="android.hardware.location"
+21-->C:\Users\singg\Development\mobile-speedash\shared\src\androidMain\AndroidManifest.xml:16:19-59
+22        android:required="false" />
+22-->C:\Users\singg\Development\mobile-speedash\shared\src\androidMain\AndroidManifest.xml:16:60-84
+23    <uses-feature
+23-->C:\Users\singg\Development\mobile-speedash\shared\src\androidMain\AndroidManifest.xml:17:5-91
+24        android:name="android.hardware.location.gps"
+24-->C:\Users\singg\Development\mobile-speedash\shared\src\androidMain\AndroidManifest.xml:17:19-63
+25        android:required="false" />
+25-->C:\Users\singg\Development\mobile-speedash\shared\src\androidMain\AndroidManifest.xml:17:64-88
+26
+27</manifest>
