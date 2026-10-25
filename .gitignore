@@ -6,8 +6,16 @@
 /.idea/
 .DS_Store
 /build
+androidApp/build
 /captures
 .externalNativeBuild
 .cxx
 *.apk
 *.aab
+
+# Xcode & iOS
+iosApp/iosApp.xcodeproj/project.xcworkspace/
+iosApp/iosApp.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/
+*.xcodeproj/xcuserdata/
+DerivedData/
