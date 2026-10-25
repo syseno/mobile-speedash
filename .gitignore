@@ -13,6 +13,10 @@ androidApp/build
 .cxx
 *.apk
 *.aab
+**/build/
+.gradle/
+androidApp/build/
+shared/build/
 
 # Xcode & iOS
 iosApp/iosApp.xcodeproj/project.xcworkspace/
