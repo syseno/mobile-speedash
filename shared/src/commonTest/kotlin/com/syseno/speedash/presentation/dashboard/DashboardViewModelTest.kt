@@ -290,4 +290,18 @@ class DashboardViewModelTest {
         advanceUntilIdle()
         assertEquals(CockpitSkin.STEALTH_GREEN, vm.uiState.value.cockpitSkin)
     }
+
+    @Test
+    fun selectLayout_updatesUiState() = runTest(testDispatcher) {
+        val vm = viewModel()
+        assertEquals(GaugeLayout.SPORT_RACING, vm.uiState.value.gaugeLayout)
+
+        vm.onIntent(DashboardUiIntent.SelectLayout(GaugeLayout.MINIMAL_HUD))
+        advanceUntilIdle()
+        assertEquals(GaugeLayout.MINIMAL_HUD, vm.uiState.value.gaugeLayout)
+
+        vm.onIntent(DashboardUiIntent.CycleLayout)
+        advanceUntilIdle()
+        assertEquals(GaugeLayout.DUAL_CLUSTER, vm.uiState.value.gaugeLayout)
+    }
 }

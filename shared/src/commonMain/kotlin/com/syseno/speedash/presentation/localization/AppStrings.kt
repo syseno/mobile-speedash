@@ -2,6 +2,7 @@ package com.syseno.speedash.presentation.localization
 
 import com.syseno.speedash.domain.model.AppLanguage
 import com.syseno.speedash.presentation.dashboard.CockpitSkin
+import com.syseno.speedash.presentation.dashboard.GaugeLayout
 import com.syseno.speedash.presentation.dashboard.SpeedUnit
 import com.syseno.speedash.presentation.dashboard.VehicleType
 
@@ -80,6 +81,12 @@ interface AppStrings {
     val skinSectionSubtitle: String
     fun skinName(skin: CockpitSkin): String
     fun skinDescription(skin: CockpitSkin): String
+
+    // Dashboard Layout Section
+    val layoutSectionTitle: String
+    val layoutSectionSubtitle: String
+    fun layoutName(layout: GaugeLayout): String
+    fun layoutDescription(layout: GaugeLayout): String
 
     // Vehicle Mode Section
     val vehicleSectionTitle: String
@@ -219,6 +226,23 @@ internal object EnglishStrings : AppStrings {
         CockpitSkin.STEALTH_GREEN -> "Eco bio-emerald & mint cockpit"
         CockpitSkin.DAYLIGHT_LITE -> "High-contrast clean light theme"
         CockpitSkin.DEEP_SPACE -> "Hyper-violet & deep navy interstellar"
+    }
+
+    override val layoutSectionTitle: String = "DASHBOARD LAYOUT STYLE"
+    override val layoutSectionSubtitle: String = "Choose your preferred telemetry cluster layout and gauge presentation."
+
+    override fun layoutName(layout: GaugeLayout): String = when (layout) {
+        GaugeLayout.SPORT_RACING -> "Sport GT Racing"
+        GaugeLayout.CIRCULAR_STANDARD -> "Standard Cockpit"
+        GaugeLayout.MINIMAL_HUD -> "Minimalist HUD"
+        GaugeLayout.DUAL_CLUSTER -> "Dual Ring Cluster"
+    }
+
+    override fun layoutDescription(layout: GaugeLayout): String = when (layout) {
+        GaugeLayout.SPORT_RACING -> "Supercar layout with top RPM intensity bar, central dial & side telemetry wings"
+        GaugeLayout.CIRCULAR_STANDARD -> "Classic central circular gauge with top status & bottom telemetry cards"
+        GaugeLayout.MINIMAL_HUD -> "Clean distraction-free layout with massive digital speed readout & sleek arc"
+        GaugeLayout.DUAL_CLUSTER -> "Side-by-side twin rings for speed telemetry & navigation compass"
     }
 
     override val vehicleSectionTitle: String = "VEHICLE MODE"
@@ -363,6 +387,23 @@ internal object IndonesianStrings : AppStrings {
         CockpitSkin.STEALTH_GREEN -> "Kokpit hijau zamrud & mint ramah lingkungan"
         CockpitSkin.DAYLIGHT_LITE -> "Tema terang kontras tinggi untuk siang hari"
         CockpitSkin.DEEP_SPACE -> "Tema antariksa ungu hiper & biru tua"
+    }
+
+    override val layoutSectionTitle: String = "GAYA TAMPILAN DASHBOARD"
+    override val layoutSectionSubtitle: String = "Pilih tata letak kluster instrumen dan tampilan telemetri sesuai selera."
+
+    override fun layoutName(layout: GaugeLayout): String = when (layout) {
+        GaugeLayout.SPORT_RACING -> "Sport GT Balap"
+        GaugeLayout.CIRCULAR_STANDARD -> "Kokpit Standar"
+        GaugeLayout.MINIMAL_HUD -> "HUD Minimalis"
+        GaugeLayout.DUAL_CLUSTER -> "Kluster Cincin Ganda"
+    }
+
+    override fun layoutDescription(layout: GaugeLayout): String = when (layout) {
+        GaugeLayout.SPORT_RACING -> "Tampilan supercar dengan bilah RPM atas, instrumen tengah & sayap telemetri samping"
+        GaugeLayout.CIRCULAR_STANDARD -> "Tampilan klasik instrumen melingkar tengah dengan kartu telemetri bawah"
+        GaugeLayout.MINIMAL_HUD -> "Tampilan bersih fokus mengemudi dengan angka kecepatan ekstra besar"
+        GaugeLayout.DUAL_CLUSTER -> "Dua cincin berdampingan untuk speedometer & kompas navigasi"
     }
 
     override val vehicleSectionTitle: String = "MODE KENDARAAN"

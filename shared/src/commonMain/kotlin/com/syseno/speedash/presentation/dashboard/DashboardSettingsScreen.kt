@@ -171,6 +171,20 @@ fun DashboardSettingsScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                // Section 6: Dashboard Cluster Layout Style Selection
+                SectionHeader(
+                    title = strings.layoutSectionTitle,
+                    subtitle = strings.layoutSectionSubtitle
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                GaugeLayoutSelectorRow(
+                    selectedLayout = state.gaugeLayout,
+                    strings = strings,
+                    onSelectLayout = { onIntent(DashboardUiIntent.SelectLayout(it)) }
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
                 // Section 5: Screen Wake Lock
                 SectionHeader(
                     title = strings.wakeLockSectionTitle,
@@ -793,6 +807,91 @@ private fun CockpitSkinSelectorGrid(
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Black,
                                     color = previewColor,
+                                    fontSize = 9.sp,
+                                    letterSpacing = 1.sp
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GaugeLayoutSelectorRow(
+    selectedLayout: GaugeLayout,
+    strings: AppStrings,
+    onSelectLayout: (GaugeLayout) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        GaugeLayout.entries.forEach { layout ->
+            val isSelected = selectedLayout == layout
+            val borderColor = if (isSelected) DashboardTheme.CyanNeon else DashboardTheme.SurfaceBorder
+            val containerColor = if (isSelected) DashboardTheme.BackgroundDark else DashboardTheme.SurfaceDark
+
+            val iconSymbol = when (layout) {
+                GaugeLayout.SPORT_RACING -> "🏎️"
+                GaugeLayout.CIRCULAR_STANDARD -> "🎯"
+                GaugeLayout.MINIMAL_HUD -> "⚡"
+                GaugeLayout.DUAL_CLUSTER -> "🧭"
+            }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelectLayout(layout) }
+                    .border(1.5.dp, borderColor, RoundedCornerShape(12.dp)),
+                colors = CardDefaults.cardColors(containerColor = containerColor),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = iconSymbol,
+                        fontSize = 22.sp
+                    )
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = strings.layoutName(layout),
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) DashboardTheme.CyanNeon else DashboardTheme.TextPrimary
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = strings.layoutDescription(layout),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = DashboardTheme.TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
+
+                    if (isSelected) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(DashboardTheme.CyanNeon.copy(alpha = 0.25f))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "ACTIVE",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Black,
+                                    color = DashboardTheme.CyanNeon,
                                     fontSize = 9.sp,
                                     letterSpacing = 1.sp
                                 )

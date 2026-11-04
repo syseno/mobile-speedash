@@ -45,6 +45,7 @@ data class DashboardUiState(
     val language: AppLanguage = AppLanguage.ENGLISH,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val cockpitSkin: CockpitSkin = CockpitSkin.CYBERPUNK,
+    val gaugeLayout: GaugeLayout = GaugeLayout.SPORT_RACING,
     val maxSpeedKmh: Double = 0.0,
     val tripDistanceMeters: Double = 0.0,
     val movingTimeMillis: Long = 0L,
@@ -270,6 +271,20 @@ enum class CockpitSkin(
     fun next(): CockpitSkin = entries[(ordinal + 1) % entries.size]
 }
 
+/**
+ * Dashboard Cluster Layout Styles.
+ */
+enum class GaugeLayout(
+    val id: String
+) {
+    SPORT_RACING("sport_racing"),          // Sport GT Racing Cluster (Top RPM Bar + Center Gauge + Side Wings)
+    CIRCULAR_STANDARD("circular_standard"), // Standard Center Circular Gauge + Top Header + Bottom Cards
+    MINIMAL_HUD("minimal_hud"),            // Minimalist HUD (Massive Digital Speed Readout + Sleek Arc)
+    DUAL_CLUSTER("dual_cluster");          // Dual Ring Cluster (Speedometer + Navigation Ring)
+
+    fun next(): GaugeLayout = entries[(ordinal + 1) % entries.size]
+}
+
 // =================================================================================================
 // INTENT — every user action the UI can send. The ONLY input into the ViewModel.
 // =================================================================================================
@@ -310,6 +325,12 @@ sealed interface DashboardUiIntent {
 
     /** Cycle to the next cockpit skin. */
     data object CycleSkin : DashboardUiIntent
+
+    /** Select a specific dashboard layout style. */
+    data class SelectLayout(val layout: GaugeLayout) : DashboardUiIntent
+
+    /** Cycle to the next dashboard layout style. */
+    data object CycleLayout : DashboardUiIntent
 
     /** Reset max speed, trip distance and moving time. */
     data object ResetTrip : DashboardUiIntent
