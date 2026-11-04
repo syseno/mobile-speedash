@@ -276,4 +276,18 @@ class DashboardViewModelTest {
         assertEquals(120.4f, vm.uiState.value.altitudeMeters)
         assertEquals(120, vm.uiState.value.displayAltitudeMeters)
     }
+
+    @Test
+    fun selectSkin_updatesUiState() = runTest(testDispatcher) {
+        val vm = viewModel()
+        assertEquals(CockpitSkin.CYBERPUNK, vm.uiState.value.cockpitSkin)
+
+        vm.onIntent(DashboardUiIntent.SelectSkin(CockpitSkin.SPORT_GT))
+        advanceUntilIdle()
+        assertEquals(CockpitSkin.SPORT_GT, vm.uiState.value.cockpitSkin)
+
+        vm.onIntent(DashboardUiIntent.CycleSkin)
+        advanceUntilIdle()
+        assertEquals(CockpitSkin.STEALTH_GREEN, vm.uiState.value.cockpitSkin)
+    }
 }

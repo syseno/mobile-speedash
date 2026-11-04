@@ -98,7 +98,7 @@ data class DashboardColors(
     val needleBase: Color
 )
 
-private val DarkDashboardColors = DashboardColors(
+private val CyberpunkColors = DashboardColors(
     isDark = true,
     background = Color(0xFF07090E),
     surface = Color(0xFF10141E),
@@ -115,7 +115,58 @@ private val DarkDashboardColors = DashboardColors(
     needleBase = Color(0xFF00F5D4)
 )
 
-private val LightDashboardColors = DashboardColors(
+private val ElectricRacingColors = DashboardColors(
+    isDark = true,
+    background = Color(0xFF0A0E1A),
+    surface = Color(0xFF121829),
+    surfaceBorder = Color(0xFF1E2842),
+    gaugeTrack = Color(0xFF182238),
+    cyanNeon = Color(0xFFCCFF00), // Volt Lime
+    electricBlue = Color(0xFF00BBF9),
+    coralWarning = Color(0xFFFF6B00), // Racing Orange
+    amberWarning = Color(0xFFFFD600),
+    mintActive = Color(0xFFCCFF00),
+    textPrimary = Color(0xFFF8FAFC),
+    textSecondary = Color(0xFF94A3B8),
+    textMuted = Color(0xFF475569),
+    needleBase = Color(0xFFCCFF00)
+)
+
+private val SportGtColors = DashboardColors(
+    isDark = true,
+    background = Color(0xFF0A0505),
+    surface = Color(0xFF160B0B),
+    surfaceBorder = Color(0xFF331414),
+    gaugeTrack = Color(0xFF221010),
+    cyanNeon = Color(0xFFE60000), // Italian Red
+    electricBlue = Color(0xFFFF3333),
+    coralWarning = Color(0xFFFF0000),
+    amberWarning = Color(0xFFFFD700), // Canary Yellow
+    mintActive = Color(0xFF00E676),
+    textPrimary = Color(0xFFFFFFFF),
+    textSecondary = Color(0xFFB39999),
+    textMuted = Color(0xFF664D4D),
+    needleBase = Color(0xFFE60000)
+)
+
+private val StealthGreenColors = DashboardColors(
+    isDark = true,
+    background = Color(0xFF06140E),
+    surface = Color(0xFF0B2017),
+    surfaceBorder = Color(0xFF163E2D),
+    gaugeTrack = Color(0xFF102D20),
+    cyanNeon = Color(0xFF00E676), // Bio Emerald
+    electricBlue = Color(0xFF00B0FF),
+    coralWarning = Color(0xFFFF5252),
+    amberWarning = Color(0xFFFFD600),
+    mintActive = Color(0xFF00E676),
+    textPrimary = Color(0xFFE8F5E9),
+    textSecondary = Color(0xFF81C784),
+    textMuted = Color(0xFF388E3C),
+    needleBase = Color(0xFF00E676)
+)
+
+private val DaylightLiteColors = DashboardColors(
     isDark = false,
     background = Color(0xFFF1F5F9),
     surface = Color(0xFFFFFFFF),
@@ -132,23 +183,53 @@ private val LightDashboardColors = DashboardColors(
     needleBase = Color(0xFF0284C7)
 )
 
-private val LocalDashboardColors = staticCompositionLocalOf { DarkDashboardColors }
+private val DeepSpaceColors = DashboardColors(
+    isDark = true,
+    background = Color(0xFF050B14),
+    surface = Color(0xFF0E1526),
+    surfaceBorder = Color(0xFF1E2942),
+    gaugeTrack = Color(0xFF141E33),
+    cyanNeon = Color(0xFF9D4EDD), // Hyper Violet
+    electricBlue = Color(0xFF00F5D4),
+    coralWarning = Color(0xFFFF0055),
+    amberWarning = Color(0xFFFFB703),
+    mintActive = Color(0xFF00F5D4),
+    textPrimary = Color(0xFFF3E8FF),
+    textSecondary = Color(0xFFC084FC),
+    textMuted = Color(0xFF6B21A8),
+    needleBase = Color(0xFF9D4EDD)
+)
+
+private val LocalDashboardColors = staticCompositionLocalOf { CyberpunkColors }
 
 @Composable
 fun DashboardThemeWrapper(
     themeMode: ThemeMode,
+    cockpitSkin: CockpitSkin = CockpitSkin.CYBERPUNK,
     content: @Composable () -> Unit
 ) {
+    val isSystemDark = isSystemInDarkTheme()
     val isDark = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.SYSTEM -> isSystemDark
         ThemeMode.DARK -> true
         ThemeMode.LIGHT -> false
     }
-    val colors = if (isDark) DarkDashboardColors else LightDashboardColors
+
+    val colors = when {
+        !isDark -> DaylightLiteColors
+        else -> when (cockpitSkin) {
+            CockpitSkin.CYBERPUNK -> CyberpunkColors
+            CockpitSkin.ELECTRIC_RACING -> ElectricRacingColors
+            CockpitSkin.SPORT_GT -> SportGtColors
+            CockpitSkin.STEALTH_GREEN -> StealthGreenColors
+            CockpitSkin.DAYLIGHT_LITE -> DaylightLiteColors
+            CockpitSkin.DEEP_SPACE -> DeepSpaceColors
+        }
+    }
 
     CompositionLocalProvider(LocalDashboardColors provides colors) {
         MaterialTheme(
-            colorScheme = if (isDark) darkColorScheme() else lightColorScheme(),
+            colorScheme = if (colors.isDark) darkColorScheme() else lightColorScheme(),
             content = content
         )
     }
@@ -259,7 +340,7 @@ fun DashboardScreen(
     var showSplash by remember { mutableStateOf(true) }
 
     if (showSplash) {
-        DashboardThemeWrapper(themeMode = state.themeMode) {
+        DashboardThemeWrapper(themeMode = state.themeMode, cockpitSkin = state.cockpitSkin) {
             SpeedashSplashScreen(onTimeout = { showSplash = false })
         }
         return
@@ -275,7 +356,7 @@ fun DashboardScreen(
         }
     }
 
-    DashboardThemeWrapper(themeMode = state.themeMode) {
+    DashboardThemeWrapper(themeMode = state.themeMode, cockpitSkin = state.cockpitSkin) {
         DashboardContent(
             state = state,
             onIntent = viewModel::onIntent,
@@ -294,7 +375,7 @@ fun DashboardContent(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     modifier: Modifier = Modifier
 ) {
-    DashboardThemeWrapper(themeMode = state.themeMode) {
+    DashboardThemeWrapper(themeMode = state.themeMode, cockpitSkin = state.cockpitSkin) {
         var isSettingsOpen by remember { mutableStateOf(false) }
 
         if (state.keepScreenOn) {

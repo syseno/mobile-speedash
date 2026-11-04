@@ -1,6 +1,7 @@
 package com.syseno.speedash.presentation.dashboard
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,8 +13,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -26,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -149,6 +153,20 @@ fun DashboardSettingsScreen(
                     selectedTheme = state.themeMode,
                     strings = strings,
                     onSelectTheme = { onIntent(DashboardUiIntent.ChangeThemeMode(it)) }
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Section 5: Cockpit Skin & Styling Theme Selection
+                SectionHeader(
+                    title = strings.skinSectionTitle,
+                    subtitle = strings.skinSectionSubtitle
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                CockpitSkinSelectorGrid(
+                    selectedSkin = state.cockpitSkin,
+                    strings = strings,
+                    onSelectSkin = { onIntent(DashboardUiIntent.SelectSkin(it)) }
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -692,6 +710,95 @@ private fun ThemeSelectorRow(
                         ),
                         maxLines = 1
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CockpitSkinSelectorGrid(
+    selectedSkin: CockpitSkin,
+    strings: AppStrings,
+    onSelectSkin: (CockpitSkin) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        CockpitSkin.entries.forEach { skin ->
+            val isSelected = selectedSkin == skin
+            val previewColor = when (skin) {
+                CockpitSkin.CYBERPUNK -> Color(0xFF00F5D4)
+                CockpitSkin.ELECTRIC_RACING -> Color(0xFFCCFF00)
+                CockpitSkin.SPORT_GT -> Color(0xFFE60000)
+                CockpitSkin.STEALTH_GREEN -> Color(0xFF00E676)
+                CockpitSkin.DAYLIGHT_LITE -> Color(0xFF0284C7)
+                CockpitSkin.DEEP_SPACE -> Color(0xFF9D4EDD)
+            }
+            val borderColor = if (isSelected) previewColor else DashboardTheme.SurfaceBorder
+            val containerColor = if (isSelected) DashboardTheme.BackgroundDark else DashboardTheme.SurfaceDark
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelectSkin(skin) }
+                    .border(1.5.dp, borderColor, RoundedCornerShape(12.dp)),
+                colors = CardDefaults.cardColors(containerColor = containerColor),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(previewColor)
+                            .border(1.5.dp, if (isSelected) Color.White else Color.Transparent, CircleShape)
+                    )
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = strings.skinName(skin),
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) previewColor else DashboardTheme.TextPrimary
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = strings.skinDescription(skin),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = DashboardTheme.TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
+
+                    if (isSelected) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(previewColor.copy(alpha = 0.25f))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "ACTIVE",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Black,
+                                    color = previewColor,
+                                    fontSize = 9.sp,
+                                    letterSpacing = 1.sp
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }

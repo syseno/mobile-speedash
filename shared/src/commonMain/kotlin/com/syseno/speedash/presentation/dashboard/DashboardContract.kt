@@ -44,6 +44,7 @@ data class DashboardUiState(
     val vehicleType: VehicleType = VehicleType.CAR,
     val language: AppLanguage = AppLanguage.ENGLISH,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val cockpitSkin: CockpitSkin = CockpitSkin.CYBERPUNK,
     val maxSpeedKmh: Double = 0.0,
     val tripDistanceMeters: Double = 0.0,
     val movingTimeMillis: Long = 0L,
@@ -253,6 +254,22 @@ enum class ThemeMode {
     fun next(): ThemeMode = entries[(ordinal + 1) % entries.size]
 }
 
+/**
+ * Cockpit Visual Skins & Dashboard Styling Themes.
+ */
+enum class CockpitSkin(
+    val id: String
+) {
+    CYBERPUNK("cyberpunk"),
+    ELECTRIC_RACING("electric_racing"),
+    SPORT_GT("sport_gt"),
+    STEALTH_GREEN("stealth_green"),
+    DAYLIGHT_LITE("daylight_lite"),
+    DEEP_SPACE("deep_space");
+
+    fun next(): CockpitSkin = entries[(ordinal + 1) % entries.size]
+}
+
 // =================================================================================================
 // INTENT — every user action the UI can send. The ONLY input into the ViewModel.
 // =================================================================================================
@@ -287,6 +304,12 @@ sealed interface DashboardUiIntent {
 
     /** Cycle to the next theme mode. */
     data object CycleThemeMode : DashboardUiIntent
+
+    /** Select a specific cockpit visual skin/theme. */
+    data class SelectSkin(val skin: CockpitSkin) : DashboardUiIntent
+
+    /** Cycle to the next cockpit skin. */
+    data object CycleSkin : DashboardUiIntent
 
     /** Reset max speed, trip distance and moving time. */
     data object ResetTrip : DashboardUiIntent

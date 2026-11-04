@@ -116,6 +116,10 @@ class DashboardViewModel(
                 dispatch(DashboardResult.ThemeModeChanged(intent.themeMode))
             DashboardUiIntent.CycleThemeMode ->
                 dispatch(DashboardResult.ThemeModeChanged(_uiState.value.themeMode.next()))
+            is DashboardUiIntent.SelectSkin ->
+                dispatch(DashboardResult.SkinChanged(intent.skin))
+            DashboardUiIntent.CycleSkin ->
+                dispatch(DashboardResult.SkinChanged(_uiState.value.cockpitSkin.next()))
             DashboardUiIntent.ResetTrip -> dispatch(DashboardResult.TripReset)
             DashboardUiIntent.ToggleKeepScreenOn ->
                 dispatch(DashboardResult.KeepScreenOnChanged(!_uiState.value.keepScreenOn))
@@ -262,6 +266,7 @@ internal sealed interface DashboardResult {
     data class VehicleTypeChanged(val vehicleType: VehicleType) : DashboardResult
     data class LanguageChanged(val language: AppLanguage) : DashboardResult
     data class ThemeModeChanged(val themeMode: ThemeMode) : DashboardResult
+    data class SkinChanged(val skin: CockpitSkin) : DashboardResult
     data object TripReset : DashboardResult
     data class CompassHeadingUpdated(val heading: Float) : DashboardResult
     data class BarometerAltitudeUpdated(val altitude: Float) : DashboardResult
@@ -321,6 +326,8 @@ internal object DashboardReducer {
         is DashboardResult.LanguageChanged -> state.copy(language = result.language)
 
         is DashboardResult.ThemeModeChanged -> state.copy(themeMode = result.themeMode)
+
+        is DashboardResult.SkinChanged -> state.copy(cockpitSkin = result.skin)
 
         is DashboardResult.CompassHeadingUpdated -> state.copy(
             compassHeading = result.heading,

@@ -1,6 +1,7 @@
 package com.syseno.speedash.presentation.localization
 
 import com.syseno.speedash.domain.model.AppLanguage
+import com.syseno.speedash.presentation.dashboard.CockpitSkin
 import com.syseno.speedash.presentation.dashboard.SpeedUnit
 import com.syseno.speedash.presentation.dashboard.VehicleType
 
@@ -73,6 +74,12 @@ interface AppStrings {
     val themeDarkOptionSubtitle: String
     val themeLightOption: String
     val themeLightOptionSubtitle: String
+
+    // Cockpit Skin / Theme Section
+    val skinSectionTitle: String
+    val skinSectionSubtitle: String
+    fun skinName(skin: CockpitSkin): String
+    fun skinDescription(skin: CockpitSkin): String
 
     // Vehicle Mode Section
     val vehicleSectionTitle: String
@@ -192,6 +199,27 @@ internal object EnglishStrings : AppStrings {
     override val themeDarkOptionSubtitle: String = "Deep space dark theme optimized for night driving"
     override val themeLightOption: String = "Light Cockpit"
     override val themeLightOptionSubtitle: String = "High contrast light theme optimized for daylight driving"
+
+    override val skinSectionTitle: String = "COCKPIT SKIN & THEME"
+    override val skinSectionSubtitle: String = "Choose a custom color theme & gauge styling for your instrument cluster."
+
+    override fun skinName(skin: CockpitSkin): String = when (skin) {
+        CockpitSkin.CYBERPUNK -> "Cyberpunk Neon"
+        CockpitSkin.ELECTRIC_RACING -> "Electric Racing"
+        CockpitSkin.SPORT_GT -> "Sport GT Red"
+        CockpitSkin.STEALTH_GREEN -> "Stealth Green"
+        CockpitSkin.DAYLIGHT_LITE -> "Daylight White"
+        CockpitSkin.DEEP_SPACE -> "Deep Space Violet"
+    }
+
+    override fun skinDescription(skin: CockpitSkin): String = when (skin) {
+        CockpitSkin.CYBERPUNK -> "Futuristic neon cyan & magenta cockpit"
+        CockpitSkin.ELECTRIC_RACING -> "High performance volt lime & electric blue"
+        CockpitSkin.SPORT_GT -> "Classic Italian racing red & canary yellow"
+        CockpitSkin.STEALTH_GREEN -> "Eco bio-emerald & mint cockpit"
+        CockpitSkin.DAYLIGHT_LITE -> "High-contrast clean light theme"
+        CockpitSkin.DEEP_SPACE -> "Hyper-violet & deep navy interstellar"
+    }
 
     override val vehicleSectionTitle: String = "VEHICLE MODE"
     override val vehicleSectionSubtitle: String = "Selecting Ship or Plane automatically sets speed unit to Knots."
@@ -315,6 +343,27 @@ internal object IndonesianStrings : AppStrings {
     override val themeDarkOptionSubtitle: String = "Tema gelap yang dioptimalkan untuk berkendara malam"
     override val themeLightOption: String = "Kokpit Terang"
     override val themeLightOptionSubtitle: String = "Tema terang kontras tinggi yang dioptimalkan untuk berkendara siang"
+
+    override val skinSectionTitle: String = "TEMA & SKIN KOKPIT"
+    override val skinSectionSubtitle: String = "Pilih tema warna dan gaya tampilan instrumen sesuai selera Anda."
+
+    override fun skinName(skin: CockpitSkin): String = when (skin) {
+        CockpitSkin.CYBERPUNK -> "Cyberpunk Neon"
+        CockpitSkin.ELECTRIC_RACING -> "Balap Elektrik"
+        CockpitSkin.SPORT_GT -> "Sport GT Merah"
+        CockpitSkin.STEALTH_GREEN -> "Hijau Stealth"
+        CockpitSkin.DAYLIGHT_LITE -> "Terang Siang"
+        CockpitSkin.DEEP_SPACE -> "Luar Angkasa"
+    }
+
+    override fun skinDescription(skin: CockpitSkin): String = when (skin) {
+        CockpitSkin.CYBERPUNK -> "Tampilan futuristik neon sian & magenta"
+        CockpitSkin.ELECTRIC_RACING -> "Gaya balap performa tinggi volt lime & biru"
+        CockpitSkin.SPORT_GT -> "Gaya balap klasik Italia merah & kuning"
+        CockpitSkin.STEALTH_GREEN -> "Kokpit hijau zamrud & mint ramah lingkungan"
+        CockpitSkin.DAYLIGHT_LITE -> "Tema terang kontras tinggi untuk siang hari"
+        CockpitSkin.DEEP_SPACE -> "Tema antariksa ungu hiper & biru tua"
+    }
 
     override val vehicleSectionTitle: String = "MODE KENDARAAN"
     override val vehicleSectionSubtitle: String = "Memilih Kapal atau Pesawat otomatis mengatur satuan ke Knot."
