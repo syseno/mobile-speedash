@@ -1,6 +1,7 @@
 package com.syseno.speedash.presentation.dashboard
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,11 +31,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import com.syseno.speedash.domain.model.AppLanguage
 import com.syseno.speedash.domain.model.TripRecord
 import com.syseno.speedash.presentation.localization.AppStrings
@@ -734,90 +742,204 @@ private fun ThemeSelectorRow(
 private fun CockpitSkinSelectorGrid(
     selectedSkin: CockpitSkin,
     strings: AppStrings,
-    onSelectSkin: (CockpitSkin) -> Unit
+    onSelectSkin: (CockpitSkin) -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val skins = CockpitSkin.entries
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        CockpitSkin.entries.forEach { skin ->
-            val isSelected = selectedSkin == skin
-            val previewColor = when (skin) {
-                CockpitSkin.CYBERPUNK -> Color(0xFF00F5D4)
-                CockpitSkin.ELECTRIC_RACING -> Color(0xFFCCFF00)
-                CockpitSkin.SPORT_GT -> Color(0xFFE60000)
-                CockpitSkin.STEALTH_GREEN -> Color(0xFF00E676)
-                CockpitSkin.DAYLIGHT_LITE -> Color(0xFF0284C7)
-                CockpitSkin.DEEP_SPACE -> Color(0xFF9D4EDD)
-            }
-            val borderColor = if (isSelected) previewColor else DashboardTheme.SurfaceBorder
-            val containerColor = if (isSelected) DashboardTheme.BackgroundDark else DashboardTheme.SurfaceDark
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onSelectSkin(skin) }
-                    .border(1.5.dp, borderColor, RoundedCornerShape(12.dp)),
-                colors = CardDefaults.cardColors(containerColor = containerColor),
-                shape = RoundedCornerShape(12.dp)
+        for (i in skins.indices step 2) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(previewColor)
-                            .border(1.5.dp, if (isSelected) Color.White else Color.Transparent, CircleShape)
+                val skin1 = skins[i]
+                SkinPreviewCard(
+                    skin = skin1,
+                    isSelected = skin1 == selectedSkin,
+                    strings = strings,
+                    onSelect = { onSelectSkin(skin1) },
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (i + 1 < skins.size) {
+                    val skin2 = skins[i + 1]
+                    SkinPreviewCard(
+                        skin = skin2,
+                        isSelected = skin2 == selectedSkin,
+                        strings = strings,
+                        onSelect = { onSelectSkin(skin2) },
+                        modifier = Modifier.weight(1f)
                     )
-
-                    Spacer(modifier = Modifier.width(14.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = strings.skinName(skin),
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) previewColor else DashboardTheme.TextPrimary
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = strings.skinDescription(skin),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = DashboardTheme.TextSecondary,
-                                fontSize = 11.sp
-                            )
-                        )
-                    }
-
-                    if (isSelected) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(previewColor.copy(alpha = 0.25f))
-                                .padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                text = "ACTIVE",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Black,
-                                    color = previewColor,
-                                    fontSize = 9.sp,
-                                    letterSpacing = 1.sp
-                                )
-                            )
-                        }
-                    }
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
     }
 }
+
+@Composable
+private fun SkinPreviewCard(
+    skin: CockpitSkin,
+    isSelected: Boolean,
+    strings: AppStrings,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val (bg, surface, accent, textCol) = when (skin) {
+        CockpitSkin.CYBERPUNK -> Quadruple(Color(0xFF07090E), Color(0xFF10141E), Color(0xFF00F5D4), Color(0xFFF0F4FC))
+        CockpitSkin.ELECTRIC_RACING -> Quadruple(Color(0xFF0A0E1A), Color(0xFF121829), Color(0xFFCCFF00), Color(0xFFF8FAFC))
+        CockpitSkin.SPORT_GT -> Quadruple(Color(0xFF0A0505), Color(0xFF160B0B), Color(0xFFE60000), Color(0xFFFFFFFF))
+        CockpitSkin.STEALTH_GREEN -> Quadruple(Color(0xFF06140E), Color(0xFF0B2017), Color(0xFF00E676), Color(0xFFE8F5E9))
+        CockpitSkin.DAYLIGHT_LITE -> Quadruple(Color(0xFFF1F5F9), Color(0xFFFFFFFF), Color(0xFF0284C7), Color(0xFF0F172A))
+        CockpitSkin.DEEP_SPACE -> Quadruple(Color(0xFF050B14), Color(0xFF0E1526), Color(0xFF9D4EDD), Color(0xFFF3E8FF))
+    }
+
+    val borderColor = if (isSelected) accent else DashboardTheme.SurfaceBorder
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelect)
+            .border(if (isSelected) 2.dp else 1.dp, borderColor, RoundedCornerShape(14.dp)),
+        colors = CardDefaults.cardColors(containerColor = DashboardTheme.SurfaceDark),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Miniature Dashboard Canvas Preview (matching theme gallery!)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                    .background(bg),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val center = Offset(size.width / 2f, size.height * 0.70f)
+                    val radius = size.height * 0.52f
+
+                    // Draw mini gauge arc track
+                    drawArc(
+                        color = surface,
+                        startAngle = 140f,
+                        sweepAngle = 260f,
+                        useCenter = false,
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = Size(radius * 2, radius * 2),
+                        style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+                    )
+
+                    // Draw mini active speed arc
+                    drawArc(
+                        color = accent,
+                        startAngle = 140f,
+                        sweepAngle = 160f,
+                        useCenter = false,
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = Size(radius * 2, radius * 2),
+                        style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+                    )
+
+                    // Draw mini needle
+                    val angleRad = (140f + 160f) * (PI.toFloat() / 180f)
+                    val tipX = center.x + (radius - 3.dp.toPx()) * cos(angleRad)
+                    val tipY = center.y + (radius - 3.dp.toPx()) * sin(angleRad)
+                    drawLine(
+                        color = accent,
+                        start = center,
+                        end = Offset(tipX, tipY),
+                        strokeWidth = 2.5.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                // Mini Digital Speed Readout
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    Text(
+                        text = "120",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            color = textCol
+                        )
+                    )
+                    Text(
+                        text = "KM/H",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 7.5.sp,
+                            fontWeight = FontWeight.Black,
+                            color = accent
+                        )
+                    )
+                }
+
+                // Status Badge in top corner
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(accent.copy(alpha = 0.2f))
+                        .border(1.dp, accent, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(5.dp)
+                            .clip(CircleShape)
+                            .background(accent)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isSelected) "ACTIVE" else "SELECT",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 7.sp,
+                            fontWeight = FontWeight.Black,
+                            color = accent
+                        )
+                    )
+                }
+            }
+
+            // Bottom Label & Description Section
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(10.dp)
+            ) {
+                Text(
+                    text = strings.skinName(skin),
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSelected) accent else DashboardTheme.TextPrimary,
+                        fontSize = 12.5.sp
+                    )
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = strings.skinDescription(skin),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = DashboardTheme.TextSecondary,
+                        fontSize = 10.sp
+                    ),
+                    maxLines = 2
+                )
+            }
+        }
+    }
+}
+
+private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 @Composable
 private fun GaugeLayoutSelectorRow(

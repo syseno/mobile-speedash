@@ -211,15 +211,16 @@ fun DashboardThemeWrapper(
     content: @Composable () -> Unit
 ) {
     val isSystemDark = isSystemInDarkTheme()
-    val isDark = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemDark
-        ThemeMode.DARK -> true
-        ThemeMode.LIGHT -> false
+    val isLightMode = when (themeMode) {
+        ThemeMode.SYSTEM -> !isSystemDark
+        ThemeMode.DARK -> false
+        ThemeMode.LIGHT -> true
     }
 
-    val colors = when {
-        !isDark -> DaylightLiteColors
-        else -> when (cockpitSkin) {
+    val colors = if (isLightMode && cockpitSkin == CockpitSkin.CYBERPUNK) {
+        DaylightLiteColors
+    } else {
+        when (cockpitSkin) {
             CockpitSkin.CYBERPUNK -> CyberpunkColors
             CockpitSkin.ELECTRIC_RACING -> ElectricRacingColors
             CockpitSkin.SPORT_GT -> SportGtColors
