@@ -578,9 +578,6 @@ private fun SpeedashInstrumentCluster(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        val sizePx = constraints.maxWidth.coerceAtMost(constraints.maxHeight).toFloat()
-        val diameterDp = (sizePx / 2.625f).dp
-
         Canvas(modifier = Modifier.fillMaxSize()) {
             val center = Offset(size.width / 2f, size.height / 2f)
             val gaugeRadius = (size.minDimension / 2f) - 16.dp.toPx()
@@ -612,7 +609,9 @@ private fun SpeedashInstrumentCluster(
             alertLevel = alertLevel,
             alertColor = alertColor,
             onUnitClick = onUnitClick,
-            modifier = Modifier.size(diameterDp)
+            modifier = Modifier
+                .fillMaxSize(0.52f)
+                .align(Alignment.Center)
         )
     }
 }
@@ -699,12 +698,12 @@ private fun DrawScope.drawSpeedGauge(
         if (speedValue % 40 == 0) {
             val textStyle = TextStyle(
                 color = if (speedValue <= clampedSpeed) textPrimaryColor else textMutedColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace
             )
             val textLayout = textMeasurer.measure(speedValue.toString(), textStyle)
-            val textRadius = radius - 28.dp.toPx()
+            val textRadius = radius - 18.dp.toPx()
             val textX = center.x + textRadius * cos(angleRad) - (textLayout.size.width / 2f)
             val textY = center.y + textRadius * sin(angleRad) - (textLayout.size.height / 2f)
 
@@ -778,23 +777,24 @@ private fun CenterDigitalHud(
     Column(
         modifier = modifier
             .clip(CircleShape)
-            .padding(16.dp),
+            .padding(vertical = 2.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         if (alertLevel != SpeedAlertLevel.NORMAL) {
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(6.dp))
                     .background(alertColor.copy(alpha = 0.2f))
-                    .border(1.dp, alertColor, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .border(1.dp, alertColor, RoundedCornerShape(6.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
                 Text(
                     text = if (alertLevel == SpeedAlertLevel.DANGER) "🚨 DANGER" else "⚠️ WARNING",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.Black,
-                        letterSpacing = 1.5.sp,
+                        fontSize = 8.sp,
+                        letterSpacing = 1.sp,
                         color = alertColor
                     )
                 )
@@ -803,22 +803,23 @@ private fun CenterDigitalHud(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(bottom = 2.dp)
+                modifier = Modifier.padding(bottom = 1.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
+                        .size(5.dp)
                         .clip(CircleShape)
                         .background(
                             if (state.hasGpsFix) DashboardTheme.MintActive else DashboardTheme.AmberWarning
                         )
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "SPEEDASH",
-                    style = MaterialTheme.typography.labelMedium.copy(
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 8.5.sp,
                         fontWeight = FontWeight.Black,
-                        letterSpacing = 2.5.sp,
+                        letterSpacing = 1.5.sp,
                         color = DashboardTheme.TextSecondary
                     )
                 )
@@ -828,7 +829,7 @@ private fun CenterDigitalHud(
         Text(
             text = "${state.displaySpeed}",
             style = MaterialTheme.typography.displayLarge.copy(
-                fontSize = 58.sp,
+                fontSize = 44.sp,
                 fontWeight = FontWeight.Black,
                 fontFamily = FontFamily.Monospace,
                 color = speedTextColor,
@@ -836,27 +837,27 @@ private fun CenterDigitalHud(
             )
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(6.dp))
                 .background(DashboardTheme.SurfaceDark)
-                .border(1.5.dp, alertColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                .border(1.dp, alertColor.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onUnitClick
                 )
-                .padding(horizontal = 14.dp, vertical = 4.dp)
+                .padding(horizontal = 10.dp, vertical = 3.dp)
         ) {
             Text(
                 text = state.speedUnit.speedLabel.uppercase(),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 18.sp,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Black,
                     color = alertColor,
-                    letterSpacing = 1.5.sp
+                    letterSpacing = 1.sp
                 )
             )
         }
