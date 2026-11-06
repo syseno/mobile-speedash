@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -414,17 +415,20 @@ fun DashboardContent(
                     containerColor = DashboardTheme.BackgroundDark,
                     snackbarHost = { SnackbarHost(snackbarHostState) }
                 ) { paddingValues ->
-                    Box(
+                    BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues)
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
+                        val isLandscape = constraints.maxWidth > constraints.maxHeight
+
                         when (state.gaugeLayout) {
                             GaugeLayout.SPORT_RACING -> {
                                 SportRacingDashboardLayout(
                                     state = state,
                                     strings = strings,
+                                    isLandscape = isLandscape,
                                     onIntent = onIntent,
                                     onSettingsClick = { isSettingsOpen = true }
                                 )
@@ -433,6 +437,7 @@ fun DashboardContent(
                                 StandardDashboardLayout(
                                     state = state,
                                     strings = strings,
+                                    isLandscape = isLandscape,
                                     onIntent = onIntent,
                                     onSettingsClick = { isSettingsOpen = true }
                                 )
@@ -441,6 +446,7 @@ fun DashboardContent(
                                 MinimalHudDashboardLayout(
                                     state = state,
                                     strings = strings,
+                                    isLandscape = isLandscape,
                                     onIntent = onIntent,
                                     onSettingsClick = { isSettingsOpen = true }
                                 )
@@ -449,6 +455,7 @@ fun DashboardContent(
                                 DualClusterDashboardLayout(
                                     state = state,
                                     strings = strings,
+                                    isLandscape = isLandscape,
                                     onIntent = onIntent,
                                     onSettingsClick = { isSettingsOpen = true }
                                 )
@@ -1335,66 +1342,146 @@ private fun TopStatusHeader(
 private fun SportRacingDashboardLayout(
     state: DashboardUiState,
     strings: AppStrings,
+    isLandscape: Boolean = false,
     onIntent: (DashboardUiIntent) -> Unit,
     onSettingsClick: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Top Section: Header + Half-Width Linear Compass Ribbon
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            TopStatusHeaderRow(state = state, strings = strings, onSettingsClick = onSettingsClick)
-            Spacer(modifier = Modifier.height(4.dp))
-            LinearCompassTape(
-                headingDegree = state.headingDegree,
-                modifier = Modifier
-                    .fillMaxWidth(0.58f)
-                    .padding(vertical = 2.dp)
-            )
-        }
-
-        // Center Section: Left Wing + Center Gauge + Right Wing
+    if (isLandscape) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(vertical = 4.dp),
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            LeftTelemetryWingCard(
-                state = state,
-                strings = strings,
-                modifier = Modifier.weight(1f)
-            )
-
-            Box(
+            // Left Column: Status Badge, GPS Accuracy, Left Telemetry Wing
+            Column(
                 modifier = Modifier
-                    .weight(1.8f)
-                    .aspectRatio(1f),
-                contentAlignment = Alignment.Center
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                SpeedashInstrumentCluster(
+                TopStatusHeaderRow(state = state, strings = strings, onSettingsClick = onSettingsClick)
+                Spacer(modifier = Modifier.height(4.dp))
+                LeftTelemetryWingCard(
                     state = state,
-                    onUnitClick = { onIntent(DashboardUiIntent.CycleSpeedUnit) },
-                    modifier = Modifier.fillMaxSize()
+                    strings = strings,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            RightTelemetryWingCard(
+            // Center Column: Linear Compass Tape & Speedometer Instrument Cluster
+            Column(
+                modifier = Modifier
+                    .weight(1.8f)
+                    .fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                LinearCompassTape(
+                    headingDegree = state.headingDegree,
+                    modifier = Modifier
+                        .fillMaxWidth(0.90f)
+                        .padding(vertical = 2.dp)
+                )
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .aspectRatio(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SpeedashInstrumentCluster(
+                        state = state,
+                        onUnitClick = { onIntent(DashboardUiIntent.CycleSpeedUnit) },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+
+            // Right Column: Right Telemetry Wing & Action Controls
+            Column(
+                modifier = Modifier
+                    .weight(1.2f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                RightTelemetryWingCard(
+                    state = state,
+                    strings = strings,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                LandscapeActionControls(
+                    state = state,
+                    strings = strings,
+                    onIntent = onIntent,
+                    onSettingsClick = onSettingsClick
+                )
+            }
+        }
+    } else {
+        // Portrait Layout
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Top Section: Header + Half-Width Linear Compass Ribbon
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                TopStatusHeaderRow(state = state, strings = strings, onSettingsClick = onSettingsClick)
+                Spacer(modifier = Modifier.height(4.dp))
+                LinearCompassTape(
+                    headingDegree = state.headingDegree,
+                    modifier = Modifier
+                        .fillMaxWidth(0.58f)
+                        .padding(vertical = 2.dp)
+                )
+            }
+
+            // Center Section: Left Wing + Center Gauge + Right Wing
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                LeftTelemetryWingCard(
+                    state = state,
+                    strings = strings,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Box(
+                    modifier = Modifier
+                        .weight(1.8f)
+                        .aspectRatio(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SpeedashInstrumentCluster(
+                        state = state,
+                        onUnitClick = { onIntent(DashboardUiIntent.CycleSpeedUnit) },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                RightTelemetryWingCard(
+                    state = state,
+                    strings = strings,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Bottom Section: Action Controls
+            BottomTelemetryControls(
                 state = state,
                 strings = strings,
-                modifier = Modifier.weight(1f)
+                onIntent = onIntent,
+                onSettingsClick = onSettingsClick
             )
         }
-
-        // Bottom Section: Action Controls
-        BottomTelemetryControls(
-            state = state,
-            strings = strings,
-            onIntent = onIntent,
-            onSettingsClick = onSettingsClick
-        )
     }
 }
 // =================================================================================================
@@ -1534,6 +1621,76 @@ private fun WingMetricItem(
     }
 }
 
+@Composable
+private fun LandscapeActionControls(
+    state: DashboardUiState,
+    strings: AppStrings,
+    onIntent: (DashboardUiIntent) -> Unit,
+    onSettingsClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        val isTracking = state.isTracking
+        Button(
+            onClick = { onIntent(DashboardUiIntent.ToggleTracking) },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isTracking) DashboardTheme.CoralWarning else DashboardTheme.CyanNeon,
+                contentColor = if (isTracking) Color.White else DashboardTheme.BackgroundDark
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+        ) {
+            Text(
+                text = if (isTracking) strings.stopTelemetry else strings.startTelemetry,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp
+                )
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Button(
+                onClick = { onIntent(DashboardUiIntent.ResetTrip) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = DashboardTheme.SurfaceDark,
+                    contentColor = DashboardTheme.TextSecondary
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .border(1.dp, DashboardTheme.SurfaceBorder, RoundedCornerShape(12.dp))
+            ) {
+                Text(text = strings.reset, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+            }
+
+            Button(
+                onClick = onSettingsClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = DashboardTheme.SurfaceDark,
+                    contentColor = DashboardTheme.CyanNeon
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .border(1.dp, DashboardTheme.SurfaceBorder, RoundedCornerShape(12.dp))
+            ) {
+                Text(text = "⚙", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
+            }
+        }
+    }
+}
+
 /**
  * Standard Cockpit Layout:
  * - Top Status Header Row
@@ -1545,84 +1702,188 @@ private fun WingMetricItem(
 private fun StandardDashboardLayout(
     state: DashboardUiState,
     strings: AppStrings,
+    isLandscape: Boolean = false,
     onIntent: (DashboardUiIntent) -> Unit,
     onSettingsClick: () -> Unit
 ) {
     val speedAlertLevel = getSpeedAlertLevel(state.smoothedSpeedKmh, state.vehicleType)
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        TopStatusHeader(
-            trackingStatus = state.trackingStatus,
-            accuracyMeters = state.gpsAccuracyMeters,
-            hasFix = state.hasGpsFix,
-            headingDegrees = state.headingDegrees,
-            cardinalDirection = strings.cardinalDirection(state.headingDegree),
-            hasCompassSensor = state.hasCompassSensor,
-            strings = strings,
-            speedAlertLevel = speedAlertLevel,
-            vehicleType = state.vehicleType,
-            onSettingsClick = onSettingsClick
-        )
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+    if (isLandscape) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Left Column: Status Header + Linear Compass Ribbon
+            Column(
+                modifier = Modifier
+                    .weight(1.1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                TopStatusHeaderRow(state = state, strings = strings, onSettingsClick = onSettingsClick)
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearCompassTape(
+                    headingDegree = state.headingDegree,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (state.hasBarometerSensor && state.displayAltitudeMeters != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(DashboardTheme.SurfaceDark)
+                            .border(1.dp, DashboardTheme.SurfaceBorder, RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(text = "⛰️", style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = strings.altitudeFormat(state.displayAltitudeMeters!!),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                color = DashboardTheme.CyanNeon,
+                                letterSpacing = 1.sp
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Center Column: Large Speedometer Cluster
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
+                    .weight(1.8f)
+                    .fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
                 SpeedashInstrumentCluster(
                     state = state,
                     onUnitClick = { onIntent(DashboardUiIntent.CycleSpeedUnit) },
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxHeight()
                         .aspectRatio(1f)
                 )
             }
 
-            if (state.hasBarometerSensor && state.displayAltitudeMeters != null) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(DashboardTheme.SurfaceDark)
-                        .border(1.dp, DashboardTheme.SurfaceBorder, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 5.dp)
+            // Right Column: Telemetry Controls & Action Buttons
+            Column(
+                modifier = Modifier
+                    .weight(1.2f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = DashboardTheme.SurfaceDark),
+                    border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(
+                        listOf(DashboardTheme.SurfaceBorder, DashboardTheme.SurfaceDark)
+                    )),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text(text = "⛰️", style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = strings.altitudeFormat(state.displayAltitudeMeters!!),
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            color = DashboardTheme.CyanNeon,
-                            letterSpacing = 1.sp
-                        )
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        TelemetryMetricItem(label = strings.maxSpeed, value = "${state.displayMaxSpeed}", unit = state.speedUnit.speedLabel)
+                        TelemetryMetricItem(label = strings.avgSpeed, value = "${state.displayAverageSpeed}", unit = state.speedUnit.speedLabel)
+                        TelemetryMetricItem(label = strings.tripDistance, value = formatOneDecimal(state.displayTripDistance), unit = state.speedUnit.distanceLabel)
+                    }
                 }
+
+                LandscapeActionControls(
+                    state = state,
+                    strings = strings,
+                    onIntent = onIntent,
+                    onSettingsClick = onSettingsClick
+                )
             }
         }
+    } else {
+        // Portrait
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            TopStatusHeader(
+                trackingStatus = state.trackingStatus,
+                accuracyMeters = state.gpsAccuracyMeters,
+                hasFix = state.hasGpsFix,
+                headingDegrees = state.headingDegrees,
+                cardinalDirection = strings.cardinalDirection(state.headingDegree),
+                hasCompassSensor = state.hasCompassSensor,
+                strings = strings,
+                speedAlertLevel = speedAlertLevel,
+                vehicleType = state.vehicleType,
+                onSettingsClick = onSettingsClick
+            )
 
-        BottomTelemetryControls(
-            state = state,
-            strings = strings,
-            onIntent = onIntent,
-            onSettingsClick = onSettingsClick
-        )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SpeedashInstrumentCluster(
+                        state = state,
+                        onUnitClick = { onIntent(DashboardUiIntent.CycleSpeedUnit) },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .aspectRatio(1f)
+                    )
+                }
+
+                if (state.hasBarometerSensor && state.displayAltitudeMeters != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(DashboardTheme.SurfaceDark)
+                            .border(1.dp, DashboardTheme.SurfaceBorder, RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = 5.dp)
+                    ) {
+                        Text(text = "⛰️", style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = strings.altitudeFormat(state.displayAltitudeMeters!!),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace,
+                                color = DashboardTheme.CyanNeon,
+                                letterSpacing = 1.sp
+                            )
+                        )
+                    }
+                }
+            }
+
+            BottomTelemetryControls(
+                state = state,
+                strings = strings,
+                onIntent = onIntent,
+                onSettingsClick = onSettingsClick
+            )
+        }
     }
 }
 
@@ -1634,65 +1895,143 @@ private fun StandardDashboardLayout(
 private fun MinimalHudDashboardLayout(
     state: DashboardUiState,
     strings: AppStrings,
+    isLandscape: Boolean = false,
     onIntent: (DashboardUiIntent) -> Unit,
     onSettingsClick: () -> Unit
 ) {
     val speedAlertLevel = getSpeedAlertLevel(state.smoothedSpeedKmh, state.vehicleType)
     val alertColor = if (speedAlertLevel == SpeedAlertLevel.DANGER) DashboardTheme.CoralWarning else if (speedAlertLevel == SpeedAlertLevel.WARNING) DashboardTheme.AmberWarning else DashboardTheme.CyanNeon
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.SpaceBetween,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        TopStatusHeaderRow(state = state, strings = strings, onSettingsClick = onSettingsClick)
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+    if (isLandscape) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "${state.displaySpeed}",
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 92.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Monospace,
-                    color = alertColor,
-                    letterSpacing = (-2.5).sp
-                )
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Box(
+            Column(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(DashboardTheme.SurfaceDark)
-                    .border(1.5.dp, alertColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                    .clickable { onIntent(DashboardUiIntent.CycleSpeedUnit) }
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                TopStatusHeaderRow(state = state, strings = strings, onSettingsClick = onSettingsClick)
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearCompassTape(headingDegree = state.headingDegree, modifier = Modifier.fillMaxWidth())
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1.5f)
+                    .fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = state.speedUnit.speedLabel.uppercase(),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 20.sp,
+                    text = "${state.displaySpeed}",
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontSize = 96.sp,
                         fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace,
                         color = alertColor,
-                        letterSpacing = 1.5.sp
+                        letterSpacing = (-2.5).sp
                     )
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DashboardTheme.SurfaceDark)
+                        .border(1.5.dp, alertColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                        .clickable { onIntent(DashboardUiIntent.CycleSpeedUnit) }
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = state.speedUnit.speedLabel.uppercase(),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = alertColor,
+                            letterSpacing = 1.5.sp
+                        )
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(1.dp))
+                LandscapeActionControls(
+                    state = state,
+                    strings = strings,
+                    onIntent = onIntent,
+                    onSettingsClick = onSettingsClick
                 )
             }
         }
+    } else {
+        // Portrait
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            TopStatusHeaderRow(state = state, strings = strings, onSettingsClick = onSettingsClick)
 
-        BottomTelemetryControls(
-            state = state,
-            strings = strings,
-            onIntent = onIntent,
-            onSettingsClick = onSettingsClick
-        )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "${state.displaySpeed}",
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontSize = 92.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace,
+                        color = alertColor,
+                        letterSpacing = (-2.5).sp
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DashboardTheme.SurfaceDark)
+                        .border(1.5.dp, alertColor.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                        .clickable { onIntent(DashboardUiIntent.CycleSpeedUnit) }
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = state.speedUnit.speedLabel.uppercase(),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = alertColor,
+                            letterSpacing = 1.5.sp
+                        )
+                    )
+                }
+            }
+
+            BottomTelemetryControls(
+                state = state,
+                strings = strings,
+                onIntent = onIntent,
+                onSettingsClick = onSettingsClick
+            )
+        }
     }
 }
 
@@ -1704,6 +2043,7 @@ private fun MinimalHudDashboardLayout(
 private fun DualClusterDashboardLayout(
     state: DashboardUiState,
     strings: AppStrings,
+    isLandscape: Boolean = false,
     onIntent: (DashboardUiIntent) -> Unit,
     onSettingsClick: () -> Unit
 ) {
