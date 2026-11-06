@@ -1338,14 +1338,11 @@ private fun SportRacingDashboardLayout(
     onIntent: (DashboardUiIntent) -> Unit,
     onSettingsClick: () -> Unit
 ) {
-    val speedAlertLevel = getSpeedAlertLevel(state.smoothedSpeedKmh, state.vehicleType)
-    val alertColor = if (speedAlertLevel == SpeedAlertLevel.DANGER) DashboardTheme.CoralWarning else if (speedAlertLevel == SpeedAlertLevel.WARNING) DashboardTheme.AmberWarning else DashboardTheme.CyanNeon
-
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Top Section: Header + Half-Width Linear Compass Ribbon + Tachometer RPM Bar + Turn Indicators
+        // Top Section: Header + Half-Width Linear Compass Ribbon
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             TopStatusHeaderRow(state = state, strings = strings, onSettingsClick = onSettingsClick)
             Spacer(modifier = Modifier.height(4.dp))
@@ -1355,37 +1352,6 @@ private fun SportRacingDashboardLayout(
                     .fillMaxWidth(0.58f)
                     .padding(vertical = 2.dp)
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "◄",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Black,
-                        color = alertColor,
-                        fontSize = 20.sp
-                    ),
-                    modifier = Modifier.padding(start = 4.dp)
-                )
-
-                TopTachometerRpmBar(
-                    currentSpeedKmh = state.smoothedSpeedKmh,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Text(
-                    text = "►",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Black,
-                        color = alertColor,
-                        fontSize = 20.sp
-                    ),
-                    modifier = Modifier.padding(end = 4.dp)
-                )
-            }
         }
 
         // Center Section: Left Wing + Center Gauge + Right Wing
@@ -1431,86 +1397,9 @@ private fun SportRacingDashboardLayout(
         )
     }
 }
-
-/**
- * Top Segmented Tachometer / Speed Intensity LED Bar across the top of the dashboard.
- */
-@Composable
-private fun TopTachometerRpmBar(
-    currentSpeedKmh: Double,
-    maxGaugeSpeed: Float = 240f,
-    modifier: Modifier = Modifier
-) {
-    val cyanNeon = DashboardTheme.CyanNeon
-    val amberWarning = DashboardTheme.AmberWarning
-    val coralWarning = DashboardTheme.CoralWarning
-    val surfaceBorder = DashboardTheme.SurfaceBorder
-    val textPrimary = DashboardTheme.TextPrimary
-
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Numbers 1 to 8 above bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            (1..8).forEach { num ->
-                Text(
-                    text = "$num",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.Monospace,
-                        color = textPrimary
-                    )
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(2.dp))
-
-        // Segmented LED intensity bar
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(16.dp)
-                .padding(horizontal = 8.dp)
-        ) {
-            val totalSegments = 32
-            val segmentGap = 3.dp.toPx()
-            val totalGaps = (totalSegments - 1) * segmentGap
-            val segmentWidth = (size.width - totalGaps) / totalSegments
-            val fillFraction = (currentSpeedKmh / maxGaugeSpeed).coerceIn(0.0, 1.0).toFloat()
-            val activeSegments = (fillFraction * totalSegments).roundToInt()
-
-            for (i in 0 until totalSegments) {
-                val left = i * (segmentWidth + segmentGap)
-                val top = 0f
-                val right = left + segmentWidth
-                val bottom = size.height
-
-                val segFraction = i.toFloat() / totalSegments
-                val segmentColor = when {
-                    i >= activeSegments -> surfaceBorder.copy(alpha = 0.35f)
-                    segFraction >= 0.8f -> coralWarning
-                    segFraction >= 0.5f -> amberWarning
-                    else -> cyanNeon
-                }
-
-                drawRoundRect(
-                    color = segmentColor,
-                    topLeft = Offset(left, top),
-                    size = Size(segmentWidth, bottom),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx())
-                )
-            }
-        }
-    }
-}
+// =================================================================================================
+// TELEMETRY WING CARDS
+// =================================================================================================
 
 /**
  * Left Telemetry Wing Card (Sloped sport card for Max, Avg, Trip Dist).
