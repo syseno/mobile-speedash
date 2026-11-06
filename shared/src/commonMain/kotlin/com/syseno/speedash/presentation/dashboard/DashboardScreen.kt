@@ -1041,8 +1041,7 @@ private fun LinearCompassTape(
 
     Box(
         modifier = modifier
-            .fillMaxWidth()
-            .height(68.dp)
+            .height(56.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(surfaceColor)
             .border(1.5.dp, surfaceBorderColor, RoundedCornerShape(12.dp)),
@@ -1052,11 +1051,11 @@ private fun LinearCompassTape(
             val w = size.width
             val h = size.height
             val centerX = w / 2f
-            val pixelsPerDegree = 3.4.dp.toPx()
+            val pixelsPerDegree = 2.8.dp.toPx()
 
-            val topTextY = 10.dp.toPx()
-            val tickTopY = 22.dp.toPx()
-            val bottomTextY = 42.dp.toPx()
+            val topTextY = 8.dp.toPx()
+            val tickTopY = 18.dp.toPx()
+            val bottomTextY = 33.dp.toPx()
 
             val visibleSpanDegrees = (w / 2f) / pixelsPerDegree
             val minDegree = (animatedHeading - visibleSpanDegrees - 10f).toInt()
@@ -1068,16 +1067,16 @@ private fun LinearCompassTape(
                 val diff = degree - animatedHeading
                 val x = centerX + diff * pixelsPerDegree
 
-                if (x in -20f..(w + 20f)) {
+                if (x in -15f..(w + 15f)) {
                     val isMajor20 = normalizedDeg % 20 == 0
                     val isMajor10 = normalizedDeg % 10 == 0
                     val isCardinal = normalizedDeg % 45 == 0
 
                     val tickHeight = when {
-                        isCardinal -> 12.dp.toPx()
-                        isMajor20 -> 10.dp.toPx()
-                        isMajor10 -> 7.dp.toPx()
-                        else -> 4.dp.toPx()
+                        isCardinal -> 11.dp.toPx()
+                        isMajor20 -> 9.dp.toPx()
+                        isMajor10 -> 6.dp.toPx()
+                        else -> 3.dp.toPx()
                     }
                     val strokeWidth = if (isMajor10 || isCardinal) 1.5.dp.toPx() else 1.dp.toPx()
                     val tickColor = if (isCardinal) textPrimaryColor else textMutedColor
@@ -1093,7 +1092,7 @@ private fun LinearCompassTape(
                     if (isMajor20) {
                         val textStyle = TextStyle(
                             color = textMutedColor,
-                            fontSize = 10.sp,
+                            fontSize = 9.sp,
                             fontWeight = FontWeight.SemiBold,
                             fontFamily = FontFamily.Monospace
                         )
@@ -1120,7 +1119,7 @@ private fun LinearCompassTape(
                         val isNorth = normalizedDeg == 0
                         val textStyle = TextStyle(
                             color = if (isNorth) coralWarningColor else textPrimaryColor,
-                            fontSize = if (label.length == 1) 14.sp else 11.sp,
+                            fontSize = if (label.length == 1) 13.sp else 10.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace
                         )
@@ -1135,9 +1134,9 @@ private fun LinearCompassTape(
 
             // Top down-pointing indicator arrow (▼)
             val topArrowPath = Path().apply {
-                val arrowTipY = 12.dp.toPx()
-                val arrowBaseY = 3.dp.toPx()
-                val arrowHalfWidth = 6.dp.toPx()
+                val arrowTipY = 10.dp.toPx()
+                val arrowBaseY = 2.dp.toPx()
+                val arrowHalfWidth = 5.dp.toPx()
                 moveTo(centerX, arrowTipY)
                 lineTo(centerX - arrowHalfWidth, arrowBaseY)
                 lineTo(centerX + arrowHalfWidth, arrowBaseY)
@@ -1147,9 +1146,9 @@ private fun LinearCompassTape(
 
             // Bottom up-pointing indicator arrow (▲)
             val bottomArrowPath = Path().apply {
-                val arrowTipY = h - 12.dp.toPx()
-                val arrowBaseY = h - 3.dp.toPx()
-                val arrowHalfWidth = 6.dp.toPx()
+                val arrowTipY = h - 10.dp.toPx()
+                val arrowBaseY = h - 2.dp.toPx()
+                val arrowHalfWidth = 5.dp.toPx()
                 moveTo(centerX, arrowTipY)
                 lineTo(centerX - arrowHalfWidth, arrowBaseY)
                 lineTo(centerX + arrowHalfWidth, arrowBaseY)
@@ -1160,13 +1159,13 @@ private fun LinearCompassTape(
             // Center vertical indicator line connecting top and bottom arrows
             drawLine(
                 color = Color.White.copy(alpha = 0.85f),
-                start = Offset(centerX, 12.dp.toPx()),
-                end = Offset(centerX, h - 12.dp.toPx()),
+                start = Offset(centerX, 10.dp.toPx()),
+                end = Offset(centerX, h - 10.dp.toPx()),
                 strokeWidth = 1.5.dp.toPx()
             )
 
             // Horizontal Edge Fade Vignette Gradient (left & right fade out)
-            val fadeWidth = 44.dp.toPx()
+            val fadeWidth = 36.dp.toPx()
             drawRect(
                 brush = Brush.horizontalGradient(
                     0.0f to surfaceColor,
@@ -1274,12 +1273,14 @@ private fun TopStatusHeader(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Linear Horizon Compass Ribbon Tape (Matching user screenshot!)
+        // Half-width Linear Horizon Compass Ribbon Tape (centered top)
         LinearCompassTape(
             headingDegree = headingDegrees.toFloat(),
-            modifier = Modifier.padding(horizontal = 4.dp)
+            modifier = Modifier
+                .fillMaxWidth(0.58f)
+                .padding(vertical = 2.dp)
         )
 
         val headerIconColor = if (speedAlertLevel == SpeedAlertLevel.DANGER) DashboardTheme.CoralWarning else if (speedAlertLevel == SpeedAlertLevel.WARNING) DashboardTheme.AmberWarning else DashboardTheme.CyanNeon
@@ -1344,13 +1345,15 @@ private fun SportRacingDashboardLayout(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Top Section: Header + Linear Compass Ribbon + Tachometer RPM Bar + Turn Indicators
+        // Top Section: Header + Half-Width Linear Compass Ribbon + Tachometer RPM Bar + Turn Indicators
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             TopStatusHeaderRow(state = state, strings = strings, onSettingsClick = onSettingsClick)
             Spacer(modifier = Modifier.height(4.dp))
             LinearCompassTape(
                 headingDegree = state.headingDegree,
-                modifier = Modifier.padding(horizontal = 4.dp)
+                modifier = Modifier
+                    .fillMaxWidth(0.58f)
+                    .padding(vertical = 2.dp)
             )
             Spacer(modifier = Modifier.height(4.dp))
             Row(
@@ -1581,19 +1584,19 @@ private fun RightTelemetryWingCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             WingMetricItem(
-                label = if (state.hasBarometerSensor) "ALTITUDE" else "GPS FIX",
+                label = if (state.hasBarometerSensor) "ALTITUDE" else "STATUS",
                 value = if (state.hasBarometerSensor && state.displayAltitudeMeters != null) "${state.displayAltitudeMeters}" else if (state.hasGpsFix) "FIXED" else "NO FIX",
                 unit = if (state.hasBarometerSensor) "m" else ""
-            )
-            WingMetricItem(
-                label = "HEADING",
-                value = "${state.headingDegrees}°",
-                unit = state.cardinalDirection
             )
             WingMetricItem(
                 label = "ACCURACY",
                 value = if (state.gpsAccuracyMeters != null) "±${state.gpsAccuracyMeters!!.roundToInt()}" else "--",
                 unit = "m"
+            )
+            WingMetricItem(
+                label = "MODE",
+                value = state.vehicleType.displayName.uppercase(),
+                unit = ""
             )
         }
     }
