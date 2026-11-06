@@ -1,6 +1,7 @@
 package com.syseno.speedash.presentation.dashboard
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -46,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -992,6 +994,193 @@ internal fun VehicleIconDisplay(
     }
 }
 
+// =================================================================================================
+// LINEAR HORIZON COMPASS RIBBON TAPE (Matching user screenshot)
+// =================================================================================================
+
+/**
+ * Calculates continuous, shortest-path angular rotation to prevent 359° -> 1° reverse spins.
+ */
+@Composable
+private fun rememberShortestPathHeading(targetHeading: Float): Float {
+    var accumulatedHeading by remember { mutableFloatStateOf(targetHeading) }
+    val animatable = remember { Animatable(targetHeading) }
+
+    LaunchedEffect(targetHeading) {
+        val current = accumulatedHeading
+        val diff = ((targetHeading - current + 540f) % 360f) - 180f
+        accumulatedHeading = current + diff
+        animatable.animateTo(
+            targetValue = accumulatedHeading,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        )
+    }
+
+    return animatable.value
+}
+
+/**
+ * Linear Horizon Compass Ribbon Tape (Matching user screenshot).
+ */
+@Composable
+private fun LinearCompassTape(
+    headingDegree: Float,
+    modifier: Modifier = Modifier
+) {
+    val animatedHeading = rememberShortestPathHeading(targetHeading = headingDegree)
+    val textMeasurer = rememberTextMeasurer()
+
+    val surfaceColor = DashboardTheme.SurfaceDark
+    val surfaceBorderColor = DashboardTheme.SurfaceBorder
+    val textPrimaryColor = DashboardTheme.TextPrimary
+    val textMutedColor = DashboardTheme.TextMuted
+    val coralWarningColor = DashboardTheme.CoralWarning
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(68.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(surfaceColor)
+            .border(1.5.dp, surfaceBorderColor, RoundedCornerShape(12.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val centerX = w / 2f
+            val pixelsPerDegree = 3.4.dp.toPx()
+
+            val topTextY = 10.dp.toPx()
+            val tickTopY = 22.dp.toPx()
+            val bottomTextY = 42.dp.toPx()
+
+            val visibleSpanDegrees = (w / 2f) / pixelsPerDegree
+            val minDegree = (animatedHeading - visibleSpanDegrees - 10f).toInt()
+            val maxDegree = (animatedHeading + visibleSpanDegrees + 10f).toInt()
+
+            val startStep = (minDegree / 2) * 2
+            for (degree in startStep..maxDegree step 2) {
+                val normalizedDeg = ((degree % 360) + 360) % 360
+                val diff = degree - animatedHeading
+                val x = centerX + diff * pixelsPerDegree
+
+                if (x in -20f..(w + 20f)) {
+                    val isMajor20 = normalizedDeg % 20 == 0
+                    val isMajor10 = normalizedDeg % 10 == 0
+                    val isCardinal = normalizedDeg % 45 == 0
+
+                    val tickHeight = when {
+                        isCardinal -> 12.dp.toPx()
+                        isMajor20 -> 10.dp.toPx()
+                        isMajor10 -> 7.dp.toPx()
+                        else -> 4.dp.toPx()
+                    }
+                    val strokeWidth = if (isMajor10 || isCardinal) 1.5.dp.toPx() else 1.dp.toPx()
+                    val tickColor = if (isCardinal) textPrimaryColor else textMutedColor
+
+                    drawLine(
+                        color = tickColor,
+                        start = Offset(x, tickTopY),
+                        end = Offset(x, tickTopY + tickHeight),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round
+                    )
+
+                    if (isMajor20) {
+                        val textStyle = TextStyle(
+                            color = textMutedColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        val textLayout = textMeasurer.measure(normalizedDeg.toString(), textStyle)
+                        drawText(
+                            textLayoutResult = textLayout,
+                            topLeft = Offset(x - (textLayout.size.width / 2f), topTextY - (textLayout.size.height / 2f))
+                        )
+                    }
+
+                    if (isCardinal) {
+                        val label = when (normalizedDeg) {
+                            0 -> "N"
+                            45 -> "NE"
+                            90 -> "E"
+                            135 -> "SE"
+                            180 -> "S"
+                            225 -> "SW"
+                            270 -> "W"
+                            315 -> "NW"
+                            else -> ""
+                        }
+
+                        val isNorth = normalizedDeg == 0
+                        val textStyle = TextStyle(
+                            color = if (isNorth) coralWarningColor else textPrimaryColor,
+                            fontSize = if (label.length == 1) 14.sp else 11.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        val textLayout = textMeasurer.measure(label, textStyle)
+                        drawText(
+                            textLayoutResult = textLayout,
+                            topLeft = Offset(x - (textLayout.size.width / 2f), bottomTextY)
+                        )
+                    }
+                }
+            }
+
+            // Top down-pointing indicator arrow (▼)
+            val topArrowPath = Path().apply {
+                val arrowTipY = 12.dp.toPx()
+                val arrowBaseY = 3.dp.toPx()
+                val arrowHalfWidth = 6.dp.toPx()
+                moveTo(centerX, arrowTipY)
+                lineTo(centerX - arrowHalfWidth, arrowBaseY)
+                lineTo(centerX + arrowHalfWidth, arrowBaseY)
+                close()
+            }
+            drawPath(path = topArrowPath, color = Color.White, style = Fill)
+
+            // Bottom up-pointing indicator arrow (▲)
+            val bottomArrowPath = Path().apply {
+                val arrowTipY = h - 12.dp.toPx()
+                val arrowBaseY = h - 3.dp.toPx()
+                val arrowHalfWidth = 6.dp.toPx()
+                moveTo(centerX, arrowTipY)
+                lineTo(centerX - arrowHalfWidth, arrowBaseY)
+                lineTo(centerX + arrowHalfWidth, arrowBaseY)
+                close()
+            }
+            drawPath(path = bottomArrowPath, color = Color.White, style = Fill)
+
+            // Center vertical indicator line connecting top and bottom arrows
+            drawLine(
+                color = Color.White.copy(alpha = 0.85f),
+                start = Offset(centerX, 12.dp.toPx()),
+                end = Offset(centerX, h - 12.dp.toPx()),
+                strokeWidth = 1.5.dp.toPx()
+            )
+
+            // Horizontal Edge Fade Vignette Gradient (left & right fade out)
+            val fadeWidth = 44.dp.toPx()
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    0.0f to surfaceColor,
+                    (fadeWidth / w) to Color.Transparent,
+                    1.0f - (fadeWidth / w) to Color.Transparent,
+                    1.0f to surfaceColor
+                ),
+                topLeft = Offset.Zero,
+                size = size
+            )
+        }
+    }
+}
+
 @Composable
 private fun TopStatusHeader(
     trackingStatus: TrackingStatus,
@@ -1085,27 +1274,12 @@ private fun TopStatusHeader(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        Text(
-            text = "${headingDegrees.toString().padStart(3, '0')}° $cardinalDirection",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace,
-                color = DashboardTheme.CyanNeon,
-                letterSpacing = 1.5.sp
-            )
-        )
-
-        Text(
-            text = "▲",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Black,
-                color = DashboardTheme.CyanNeon
-            ),
-            modifier = Modifier.padding(top = 2.dp)
+        // Linear Horizon Compass Ribbon Tape (Matching user screenshot!)
+        LinearCompassTape(
+            headingDegree = headingDegrees.toFloat(),
+            modifier = Modifier.padding(horizontal = 4.dp)
         )
 
         val headerIconColor = if (speedAlertLevel == SpeedAlertLevel.DANGER) DashboardTheme.CoralWarning else if (speedAlertLevel == SpeedAlertLevel.WARNING) DashboardTheme.AmberWarning else DashboardTheme.CyanNeon
