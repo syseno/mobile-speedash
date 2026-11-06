@@ -1344,9 +1344,14 @@ private fun SportRacingDashboardLayout(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Top Section: Header + Tachometer RPM Bar + Turn Indicators
+        // Top Section: Header + Linear Compass Ribbon + Tachometer RPM Bar + Turn Indicators
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             TopStatusHeaderRow(state = state, strings = strings, onSettingsClick = onSettingsClick)
+            Spacer(modifier = Modifier.height(4.dp))
+            LinearCompassTape(
+                headingDegree = state.headingDegree,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
             Spacer(modifier = Modifier.height(4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
